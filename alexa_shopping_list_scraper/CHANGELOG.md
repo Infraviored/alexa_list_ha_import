@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.33
+
+- If Pooling_Internal is set to Zero, the AddOn will start, run and then stop.
+
 ## 1.0.32
 
 - Fixed timeout issues for non US URLs (i.e. https://www.amazon.de)
