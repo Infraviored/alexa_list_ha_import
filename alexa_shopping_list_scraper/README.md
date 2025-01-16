@@ -42,7 +42,7 @@ In the Configuration add the following information:<BR>
 * Amazon_Secret: <YOUR_OTP_APP_SECRET> \ # your OTP App Secret in this format myotpsecrete1234. More instructions <B>[here](#How-to-get-your-OTP-App-Secret-from-Amazon)</B><BR><BR>
 * HA_Webhook_URL: <HOME_ASSISTANT_WEBHOOK_URL> \ # your Home Assistant Webhook URL. More instructions <b>[here](#how-to-get-the-Home-Assistant-Webhook-URL)</b><BR><BR>
 * Delete_After_Download: True/False \ # This option, when enabled, will delete the pulled items from the Amazon Shopping List<BR><BR>
-* Pooling_Interval: <Numebr_Of_Seconds> \ # How often in seconds the script will try to get collect items from the Amazon Shopping List (recommended greater or equal to 180 seconds)
+* Pooling_Interval: <Numebr_Of_Seconds> \ # How often in seconds the script will try to get collect items from the Amazon Shopping List (recommended greater or equal to 180 seconds) - IF set to 0, the AddOn will start, run and stop.
 
 ### * If you are not in the US and use Amazon in a different country, change the URLs below:
 * Amazon_Sign_in_URL: Amazon URL to sign. You'll need to find the URL for your country:
