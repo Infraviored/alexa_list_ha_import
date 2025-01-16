@@ -50,6 +50,11 @@ while true; do
     $cmd
   done
 
-  # Sleep for 3 minutes
+  # Check if Polling_Interval is zero and exit the loop if so
+  if [ "$Polling_Interval" -eq 0 ]; then
+    break
+  fi
+
+  # Sleep for the polling interval
   sleep $Pooling_Interval
 done
