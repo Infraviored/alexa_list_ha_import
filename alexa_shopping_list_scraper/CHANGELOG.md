@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.37
+## 1.0.38
 
 - If Pooling_Internal is set to Zero, the AddOn will start, run and then stop.
 
