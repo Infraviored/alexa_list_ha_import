@@ -51,7 +51,7 @@ while true; do
   done
 
   # Check if Polling_Interval is zero and exit the loop if so
-  if [ "$Polling_Interval" -eq 0 ]; then
+  if [ "$Pooling_Interval" -eq 0 ]; then
     break
   fi
 
