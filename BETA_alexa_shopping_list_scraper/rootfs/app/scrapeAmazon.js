@@ -75,7 +75,8 @@ async function getOTP(secret) {
         '--disable-extensions',
         '--disable-gpu',
         '--disable-dev-shm-usage',
-        '--disable-features=site-per-process'
+        '--disable-features=site-per-process',
+        '--disable-software-rasterizer'
                 ],
 //            args: ['--no-sandbox', '--disable-setuid-sandbox', '--single-process'],
 //            product: 'firefox',

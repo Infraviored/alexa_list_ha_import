@@ -110,4 +110,7 @@ action:
     enabled: true
 
 
-
+### Extra - Debug Option
+Enable the option "Debug_Log"
+It will generate verbose logs for several calls inside the script.
+Once the Add-On completes a full cycle of running=> error=> running again, some screenshots of the process internally, can be found at http://homeassistant.local:8888 

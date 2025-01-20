@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.39
+
+- Added --disable-software-rasterizer to Chromium
+
+## 1.0.38
+
+- If Pooling_Internal is set to Zero, the AddOn will start, run and then stop.
+
 ## 1.0.35
 
 - Fixed issues with timeout
