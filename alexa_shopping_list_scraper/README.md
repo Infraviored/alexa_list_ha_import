@@ -108,7 +108,7 @@ action:
     target:
       entity_id: media_player.my_alexa
     enabled: true
-
+```
 
 ### Extra - Debug Option
 Enable the option "Debug_Log"
