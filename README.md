@@ -1,6 +1,6 @@
 # Home Assistant Addons
 
-[![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fthiagobruch%2FHA_addons)
+[![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2FInfraviored%2Falexa_list_ha_import)
 
 This code is free to use but if you want to show support you can <br><a href="https://buymeacoffee.com/bruch" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 40px !important;width: 144px !important;" ></a>
 
@@ -8,7 +8,7 @@ This code is free to use but if you want to show support you can <br><a href="ht
 
 This repository contains the following add-ons
 
-<a href="https://github.com/thiagobruch/HA_Addons/tree/main/alexa_shopping_list_scraper">Alexa Shopping List Scraper</a>
+<a href="https://github.com/Infraviored/alexa_list_ha_import/tree/main/alexa_shopping_list_scraper">Alexa Shopping List Scraper</a>
 
 ![Supports aarch64 Architecture][aarch64-shield]
 ![Supports amd64 Architecture][amd64-shield]
