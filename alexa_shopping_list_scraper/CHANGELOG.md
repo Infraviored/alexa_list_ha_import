@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.39
+
+- Patched puppeteer chromium dependency conflict to fix add-on startup.
+- Refactored Dockerfile for build stability and improved caching.
+
 ## 1.0.38
 
 - If Pooling_Internal is set to Zero, the AddOn will start, run and then stop.

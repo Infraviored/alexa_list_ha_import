@@ -4,7 +4,7 @@
 
 ## About This Repository
 
-This is a personal collection of Home Assistant Add-ons.
+This is a personal collection of Home Assistant Add-ons. This repository is a fork of [thiagobruch/HA_Addons](https://github.com/thiagobruch/HA_Addons) and contains personal modifications and fixes.
 
 ## Add-ons
 
