@@ -3,7 +3,7 @@ description: "The project scrapes the Amazon Shopping List page and add the item
 version: "1.0.38"
 slug: "alexa_shopping_list_scraper"
 init: false
-url: "https://github.com/thiagobruch/HA_Addons/"
+url: "https://github.com/Infraviored/alexa_list_ha_import"
 arch:
   - armhf
   - armv7
