@@ -1,25 +1,18 @@
 #!/usr/bin/with-contenv bashio
 
-# Variables
-declare AMZ_LOGIN
-declare AMZ_PASS
-declare AMZ_SECRET
-declare HA_WEBHOOK_URL
-declare log_level
-declare Amazon_Sign_in_URL
-declare Amazon_Shopping_List_Page
-declare DELETE_AFTER_DOWNLOAD
-declare Pooling_Interval
+# Create .env file from add-on options
+cat > .env <<- EOT
+AMZ_LOGIN=$(bashio::config 'Amazon_Login')
+AMZ_PASS=$(bashio::config 'Amazon_Pass')
+AMZ_SECRET=$(bashio::config 'Amazon_Secret')
+HA_WEBHOOK_URL=$(bashio::config 'HA_Webhook_URL')
+log_level=$(bashio::config 'Debug_Log')
+Amazon_Sign_in_URL=$(bashio::config 'Amazon_Sign_in_URL')
+Amazon_Shopping_List_Page=$(bashio::config 'Amazon_Shopping_List_Page')
+DELETE_AFTER_DOWNLOAD=$(bashio::config 'Delete_After_Download')
+Pooling_Interval=$(bashio::config 'Pooling_Interval')
+EOT
 
-echo AMZ_LOGIN=$(bashio::config 'Amazon_Login')>.env
-echo AMZ_PASS=$(bashio::config 'Amazon_Pass')>>.env
-echo AMZ_SECRET=$(bashio::config 'Amazon_Secret')>>.env
-echo HA_WEBHOOK_URL=$(bashio::config 'HA_Webhook_URL')>>.env
-echo log_level=$(bashio::config 'Debug_Log')>>.env
-echo Amazon_Sign_in_URL=$(bashio::config 'Amazon_Sign_in_URL')>>.env
-echo Amazon_Shopping_List_Page=$(bashio::config 'Amazon_Shopping_List_Page')>>.env
-echo DELETE_AFTER_DOWNLOAD=$(bashio::config 'Delete_After_Download')>>.env
-echo Pooling_Interval=$(bashio::config 'Pooling_Interval')>>.env
 Pooling_Interval=$(bashio::config 'Pooling_Interval')
 
 if [ "$(bashio::config 'Debug_Log')" == "true" ]; then

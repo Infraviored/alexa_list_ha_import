@@ -29,17 +29,12 @@ fs.readFile('list_of_items.json', 'utf8', (err, data) => {
   // Function to make a webhook call for each item
   const addItemToShoppingList = async (item) => {
     try {
-      let JSONObject = { "action": "call_service", "service": "shopping_list.add_item", "name": item}
-	  let Options = {
-           method: "POST",
-           headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-           },
-           body: JSON.stringify(JSONObject)
-      }	
-	  const response = await fetch(webhookUrl, Options);
-//          const otp = console.log(Options);
+      // The service call is now wrapped in a 'data' object for axios
+      const response = await axios.post(webhookUrl, {
+        action: "call_service",
+        service: "shopping_list.add_item",
+        name: item
+      });
 //      console.log(`Successfully added item: ${item}`, response.data);
     } catch (error) {
       console.error(`Error adding item: ${item}`, error.response ? error.response.data : error.message);
