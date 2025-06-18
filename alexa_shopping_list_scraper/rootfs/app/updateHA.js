@@ -59,11 +59,3 @@ fs.unlink(filePath, (err) => {
 //  console.log(`Successfully deleted the file: ${filePath}`);
 });
 });
-
-function sleep(time, callback) {
-  var stop = new Date().getTime();
-  while (new Date().getTime() < stop + time) {
-    ;
-  }
-  callback();
-}

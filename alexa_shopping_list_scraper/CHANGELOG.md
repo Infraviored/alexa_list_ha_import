@@ -1,5 +1,11 @@
 # Changelog
 
+## 10.0.40
+
+- Resolves a race condition where items were missed by implementing a scrolling mechanism to ensure the entire virtual list is loaded before scraping
+
+- fixes a latent bug causing intermittent 2FA failures by generating the OTP token just-in-time, preventing the use of a stale token during login
+
 ## 1.0.39
 
 - Patched puppeteer chromium dependency conflict to fix add-on startup.

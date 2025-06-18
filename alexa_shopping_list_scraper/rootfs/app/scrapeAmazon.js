@@ -34,34 +34,6 @@ const log_level = getEnvVariable('log_level');
 const amz_signin_url = getEnvVariable('Amazon_Sign_in_URL');
 const amz_shoppinglist_url = getEnvVariable('Amazon_Shopping_List_Page');
 
-// Create a new OTPAuth instance
-const totp = new OTPAuth.TOTP({
-  issuer: 'YourIssuer',
-  label: amz_login,
-  algorithm: 'SHA1',
-  digits: 6,
-  period: 30,
-  secret: OTPAuth.Secret.fromBase32(secret)
-});
-
-// Generate OTP
-const token = totp.generate();
-
-//console.log(totp);
-//console.log(token);
-
-async function getOTP(secret) {
-    const totp = new OTPAuth.TOTP({
-        issuer: 'Amazon',
-        label: 'Amazon OTP',
-        algorithm: 'SHA1',
-        digits: 6,
-        period: 30,
-        secret: secret
-    });
-    return totp.generate();
-}
-
 (async () => {
     const browser = await puppeteer.launch({
 //            headless: true,
@@ -102,9 +74,7 @@ const result = parts.slice(0, 3).join('/');
 //// END Get teh main amaozn page ////
 	
     await page.goto(result, { waitUntil: 'load', timeout: 60000 });
-    sleep(1500, function() {
-    // delay
-    });
+    await new Promise(resolve => setTimeout(resolve, 1500));
 	//// DEBUG ////////
         if(log_level == "true"){
 	const timestamp = getTimestamp();
@@ -185,6 +155,15 @@ const result = parts.slice(0, 3).join('/');
 
     // Handle OTP (if required)
     if (await page.$('#auth-mfa-otpcode')) {
+        const totp = new OTPAuth.TOTP({
+            issuer: 'Amazon',
+            label: amz_login,
+            algorithm: 'SHA1',
+            digits: 6,
+            period: 30,
+            secret: OTPAuth.Secret.fromBase32(secret)
+        });
+        const token = totp.generate();
         await page.type('#auth-mfa-otpcode', token);
 	//// DEBUG ////////
 	if(log_level == "true"){
@@ -199,26 +178,41 @@ const result = parts.slice(0, 3).join('/');
     }
 
     // Navigate to Alexa Shopping List page
-    //await page.goto('https://www.amazon.com/alexaquantum/sp/alexaShoppingList?ref_=list_d_wl_ys_list_1', { waitUntil: 'load', timeout: 60000 });
-    await page.goto(amz_shoppinglist_url, { waitUntil: 'load', timeout: 60000 });
-	//// DEBUG ////////
-        if(log_level == "true"){
-	const timestamp = getTimestamp();
-    	const filename = `www/${timestamp}-05.1-screenshot_shopping_list_page.png`;
-	await page.screenshot({ path: filename, fullPage: true });
+    await page.goto(amz_shoppinglist_url, { waitUntil: 'networkidle2', timeout: 60000 });
+	
+    //// DEBUG ////////
+    if(log_level == "true"){
+        const timestamp = getTimestamp();
+        const filename = `www/${timestamp}-05.1-screenshot_shopping_list_page.png`;
+        await page.screenshot({ path: filename, fullPage: true });
+    }
+    //// END DEBUG ////
+    
+    // Wait for the list to appear
+    await page.waitForSelector('.virtual-list .item-title');
+
+    // Scroll through the list to load all items
+    await page.evaluate(async () => {
+        const scrollable_list = document.querySelector('.virtual-list');
+        let last_height = scrollable_list.scrollHeight;
+        while (true) {
+            scrollable_list.scrollTo(0, last_height);
+            await new Promise(resolve => setTimeout(resolve, 2000)); // wait for new items to load
+            let new_height = scrollable_list.scrollHeight;
+            if (new_height === last_height) {
+                break;
+            }
+            last_height = new_height;
         }
-        //// END DEBUG ////
-    const pageContent = await page.content();
-    sleep(3000, function() {
-    // delay
     });
-       //// DEBUG ////////
-        if(log_level == "true"){
+
+    //// DEBUG ////////
+    if(log_level == "true"){
 	const timestamp = getTimestamp();
-    	const filename = `www/${timestamp}-05.2-screenshot_shopping_list_page.png`;
+    	const filename = `www/${timestamp}-05.2-screenshot_shopping_list_page_scrolled.png`;
 	await page.screenshot({ path: filename, fullPage: true });
-        }
-        //// END DEBUG ////
+    }
+    //// END DEBUG ////
 
   let itemTitles = await page.$$eval(".virtual-list .item-title", items =>
     items.map(item => item.textContent.trim())
@@ -257,10 +251,3 @@ const result = parts.slice(0, 3).join('/');
   // Close the browser when done
     await browser.close();
 })();
-function sleep(time, callback) {
-  var stop = new Date().getTime();
-  while (new Date().getTime() < stop + time) {
-    ;
-  }
-  callback();
-}
