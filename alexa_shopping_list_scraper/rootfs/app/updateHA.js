@@ -35,7 +35,7 @@ fs.readFile('list_of_items.json', 'utf8', (err, data) => {
         service: "shopping_list.add_item",
         name: item
       });
-//      console.log(`Successfully added item: ${item}`, response.data);
+      console.log(`Added "${item}"`);
     } catch (error) {
       console.error(`Error adding item: ${item}`, error.response ? error.response.data : error.message);
     }

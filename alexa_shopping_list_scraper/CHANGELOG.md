@@ -1,10 +1,14 @@
 # Changelog
 
-## 10.0.40
+## 1.0.41
 
-- Resolves a race condition where items were missed by implementing a scrolling mechanism to ensure the entire virtual list is loaded before scraping
-
-- fixes a latent bug causing intermittent 2FA failures by generating the OTP token just-in-time, preventing the use of a stale token during login
+- **Major Logging Overhaul**
+  - Cleaned up noisy debug logs by removing redundant package installations and system error messages.
+  - Added clear, concise logging for normal operation (e.g., "Found 5 items", "Transferred item: 'Milk'").
+  - Re-formatted debug output to be clean and human-readable.
+- **Fix Scraper Reliability**
+  - Resolves a race condition where items were missed by implementing a scrolling mechanism to ensure the entire virtual list is loaded before scraping.
+  - Fixes a latent bug causing intermittent 2FA failures by generating the OTP token just-in-time, preventing the use of a stale token during login.
 
 ## 1.0.39
 

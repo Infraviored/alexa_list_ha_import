@@ -139,13 +139,6 @@ const result = parts.slice(0, 3).join('/');
 		const timestamp = getTimestamp();
     		const filename = `www/${timestamp}-03.4-screenshot_pass_only_after_page.png`;
 		await page.screenshot({ path: filename, fullPage: true });
-		// Extract all IDs
-    		const ids = await page.evaluate(() => {
-        	const elements = document.querySelectorAll('[id]');
-        	return Array.from(elements).map(element => element.id);
-    		});
-		// Print the IDs
-    		console.log(ids);
 		}
 		//// END DEBUG ////
             await page.click('#signInSubmit');
@@ -218,6 +211,8 @@ const result = parts.slice(0, 3).join('/');
     items.map(item => item.textContent.trim())
   );
 
+  console.log(`Found ${itemTitles.length} items on the Alexa shopping list.`);
+
   // Format each item as <listItem>
   let formattedItems = itemTitles.map(item => `${item}`);
 
@@ -241,11 +236,10 @@ const result = parts.slice(0, 3).join('/');
 
 	//// DEBUG ////////
 	// Display the JSON formatted list
-
-        if(log_level == "true"){
-	console.log(jsonFormattedItems);
-        }
-        //// END DEBUG ////
+	if(log_level == "true"){
+		console.log("DEBUG: Full list of scraped items ->", jsonFormattedItems);
+	}
+	//// END DEBUG ////
   
 
   // Close the browser when done

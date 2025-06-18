@@ -9,7 +9,7 @@ USER root
 #RUN apt-get update && apt-get install -y sudo curl && \
 #    curl -fsSL https://deb.nodesource.com/setup_21.x | sudo -E bash - && \
 #    apt-get install -y nodejs
-RUN apk add --no-cache bash nodejs npm chromium
+RUN apk add --no-cache bash nodejs npm chromium mini_httpd
 
 WORKDIR /app
 #COPY package*.json scrapeAmazon.js script.sh updateHA.js ./
