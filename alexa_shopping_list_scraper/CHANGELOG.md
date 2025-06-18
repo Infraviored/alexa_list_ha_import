@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.42
+
+- **Critical Performance Fix**
+  - Refactored main execution loop to eliminate a "busy-wait" bug that caused high, persistent CPU usage while the add-on was supposed to be sleeping.
+
 ## 1.0.41
 
 - **Major Logging Overhaul**

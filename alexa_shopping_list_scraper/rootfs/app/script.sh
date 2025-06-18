@@ -21,26 +21,25 @@ if [ "$(bashio::config 'Debug_Log')" == "true" ]; then
         mini_httpd -p 8888 -d /app/www -r "Alexa_Scraper" &
 fi
 
-COMMANDS=(
-    "cd /app/"
-    "rm -rf tmp/"
-    "/usr/bin/node /app/scrapeAmazon.js"
-    "/usr/bin/node /app/updateHA.js"
-#     "ls"
-)
-
 # Infinite loop
 while true; do
-  # Run each command
-  for cmd in "${COMMANDS[@]}"; do
-    $cmd
-  done
+  
+  bashio::log.info "Starting scrape and update cycle..."
+
+  # Group commands in a subshell to run them sequentially
+  (
+    cd /app/ || exit
+    rm -rf tmp/
+    /usr/bin/node /app/scrapeAmazon.js
+    /usr/bin/node /app/updateHA.js
+  )
 
   # Check if Polling_Interval is zero and exit the loop if so
   if [ "$Pooling_Interval" -eq 0 ]; then
+    bashio::log.info "Pooling_Interval is 0. Exiting after single run."
     break
   fi
 
-  # Sleep for the polling interval
-  sleep $Pooling_Interval
+  bashio::log.info "Cycle finished. Sleeping for ${Pooling_Interval} seconds..."
+  sleep "$Pooling_Interval"
 done
