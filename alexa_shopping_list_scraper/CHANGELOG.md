@@ -1,3 +1,10 @@
+## 1.1.8
+
+- **Cleanup & Clarity**
+  - Removed legacy debug web server and port 8888 exposure.
+  - Log a sample of recognized cookies at start (name/domain/path).
+  - Safer loop: do not exit on cd failure; retry cycle.
+  - README: clarify Cookies_JSON must include brackets and supports YAML block.
 ## 1.1.7
 
 - **Navigation Resilience**
