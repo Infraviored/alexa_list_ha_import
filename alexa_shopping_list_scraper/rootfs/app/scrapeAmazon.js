@@ -13,7 +13,7 @@ const puppeteer = require('puppeteer-extra')
 
 //////////// end change to stealth
 
-const OTPAuth = require('otpauth');  // For handling OTP
+// Cookie-only flow; OTP and email/password login are not supported
 const fs = require('fs');
 
 function getTimestamp() {
@@ -23,6 +23,10 @@ function getTimestamp() {
 
 function getEnvVariable(key) {
     return process.env[key];
+}
+
+async function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 // Replace this with your actual secret key you get from the amazon add MFA page - and remove the spaces
@@ -58,119 +62,105 @@ const amz_shoppinglist_url = getEnvVariable('Amazon_Shopping_List_Page');
 
     const page = await browser.newPage();
         page.setDefaultTimeout(60000); // 60 seconds
+        try { fs.mkdirSync('www', { recursive: true }); } catch (e) {}
+
+// Try importing cookies to reuse existing session
+let skipLogin = false;
+let cookiesProvided = false;
+try {
+    const cookiePath = '/data/cookies.json';
+    if (fs.existsSync(cookiePath)) {
+        const raw = fs.readFileSync(cookiePath, 'utf8');
+        let srcCookies;
+        try {
+            srcCookies = JSON.parse(raw);
+        } catch (_) {
+            // If file contains one object, wrap it; if it's raw string, try JSON.parse again after trimming
+            const trimmed = raw.trim();
+            if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+                srcCookies = [JSON.parse(trimmed)];
+            } else if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+                throw new Error('Invalid cookies.json JSON array');
+            } else {
+                throw new Error('Invalid cookies.json content');
+            }
+        }
+        const allowedSameSite = new Set(['Strict','Lax','None']);
+        if (Array.isArray(srcCookies) && srcCookies.length > 0) {
+            cookiesProvided = true;
+            const mapped = srcCookies.map(c => {
+                const out = { name: c.name, value: String(c.value) };
+                if (c.domain) out.domain = c.domain;
+                out.path = c.path || '/';
+                if (typeof c.httpOnly === 'boolean') out.httpOnly = c.httpOnly;
+                if (typeof c.secure === 'boolean') out.secure = c.secure;
+                if (c.sameSite && allowedSameSite.has(c.sameSite)) out.sameSite = c.sameSite;
+                if (typeof c.expires === 'number') out.expires = Math.floor(c.expires);
+                if (typeof c.expirationDate === 'number') out.expires = Math.floor(c.expirationDate);
+                return out;
+            });
+            try {
+                await page.setCookie(...mapped);
+                console.log(`Loaded ${srcCookies.length} cookies from ${cookiePath}`);
+            } catch (e) {
+                console.error('Failed to set cookies:', e && e.message ? e.message : e);
+            }
+            const sample = mapped.slice(0, Math.min(5, mapped.length)).map(c => ({ name: c.name, domain: c.domain || '(url)', path: c.path }));
+            console.log('Cookie sample:', JSON.stringify(sample));
+            // Probe access directly to the shopping list
+            // Warn when cookie domains don't match target host
+            try {
+                const targetHost = new URL(amz_shoppinglist_url).hostname.replace(/^www\./, '');
+                const cookieHosts = Array.from(new Set(mapped.map(c => (c.domain || '').replace(/^\./, ''))));
+                const hostMismatch = cookieHosts.length > 0 && !cookieHosts.some(h => targetHost.endsWith(h));
+                if (hostMismatch) {
+                    console.warn(`Warning: cookie domains ${JSON.stringify(cookieHosts)} do not match target host ${targetHost}`);
+                }
+            } catch (e) {}
+            console.log(`Navigating directly to list: ${amz_shoppinglist_url}`);
+            const resp = await page.goto(amz_shoppinglist_url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+            try {
+                console.log(`List navigation: status=${resp ? resp.status() : 'n/a'} url=${resp ? resp.url() : 'n/a'}`);
+                if (resp && typeof resp.headers === 'function') {
+                    const h = resp.headers();
+                    if (h && h['set-cookie']) {
+                        const sc = h['set-cookie'];
+                        console.log(`Response included set-cookie header (length=${typeof sc === 'string' ? sc.length : Array.isArray(sc) ? sc.join('\n').length : 0})`);
+                    }
+                }
+            } catch (_) {}
+            await sleep(500);
+            const currentUrl = page.url();
+            const isSignin = currentUrl.includes('/ap/signin');
+            skipLogin = !isSignin && (await page.$('#ap_email')) === null;
+            if (skipLogin) console.log('Using session cookies; skipping login (will NOT use email/password).');
+            else {
+                console.log('Login form detected after cookie load; session likely invalid.');
+                try {
+                    const afterCookies = await page.cookies();
+                    const important = new Set(['session-token','sess-at-acbde','at-acbde','session-id']);
+                    const summary = afterCookies
+                        .filter(c => important.has(c.name))
+                        .map(c => ({ name: c.name, domain: c.domain, path: c.path, expires: c.expires || null }));
+                    console.log('Post-nav cookie presence:', JSON.stringify(summary));
+                } catch (e) {}
+            }
+        }
+    }
+} catch (e) {
+    console.error('Cookie import failed:', e && e.message ? e.message : e);
+}
 
 // start loop code
-let elementExists = false;
-do {
-//    Navigate to Amazon login page
-//    await page.goto('https://www.amazon.com/ap/signin?openid.pape.max_auth_age=3600&openid.return_to=https%3A%2F%2Fwww.amazon.com%2Falex>
-
-//// Get teh main amaozn page ////
-const url = amz_signin_url;
-const parts = url.split('/');
-const result = parts.slice(0, 3).join('/');
-//console.log(result); 
-
-//// END Get teh main amaozn page ////
-	
-    await page.goto(result, { waitUntil: 'load', timeout: 60000 });
-    await new Promise(resolve => setTimeout(resolve, 1500));
-	//// DEBUG ////////
-        if(log_level == "true"){
-	const timestamp = getTimestamp();
-    	const filename = `www/${timestamp}-01-screenshot_main_page.png`;
-        await page.screenshot({ path: filename, fullPage: true });
-        }
-        //// END DEBUG ////
-
-    //await page.goto('https://www.amazon.com/ap/signin?openid.pape.max_auth_age=3600&openid.return_to=https%3A%2F%2Fwww.amazon.com%2Falex')};
-    //await page.goto(amz_signin_url, { waitUntil: 'load', timeout: 60000 });
-	await page.goto(amz_signin_url, { waitUntil: 'networkidle2', timeout: 0 });
-    elementExists = await page.$('#ap_email') !== null;
-} while (!elementExists);
-
-	//// DEBUG ////////
-	if(log_level == "true"){
-	const timestamp = getTimestamp();
-    	const filename = `www/${timestamp}-02-screenshot_login_page.png`;
-	await page.screenshot({ path: filename, fullPage: true });	
-	}
-	//// END DEBUG ////
-	
-	
-/// end loop code
-
-	if (await page.$('#ap_password')) {
-            await page.type('#ap_email', amz_login);
-            await page.type('#ap_password', amz_password);
-	    	//// DEBUG ////////
-		if(log_level == "true"){
-		const timestamp = getTimestamp();
-    		const filename = `www/${timestamp}-03.1-screenshot_login_user_and_pass_page.png`;
-      		await page.screenshot({ path: filename, fullPage: true });
-		}
-		//// END DEBUG ////
-            await page.click('#signInSubmit');
-            //await page.waitForNavigation();
-	    await page.waitForNavigation({waitUntil: 'networkidle0',timeout: 0,});
-	} else {
-            await new Promise(resolve => setTimeout(resolve, 1000)); // 30 second delay
-            await page.type('#ap_email', amz_login);
-		//// DEBUG ////////
-		if(log_level == "true"){
-		const timestamp = getTimestamp();
-    		const filename = `www/${timestamp}-03.2-screenshot_login_only_and_pass_page.png`;
-		await page.screenshot({ path: filename, fullPage: true });
-		}
-		//// END DEBUG ////
-            await page.click('#continue');
-            //await page.waitForNavigation();
-	    await page.waitForNavigation({waitUntil: 'networkidle0',timeout: 0,});
-		//// DEBUG ////////
-		if(log_level == "true"){
-		const timestamp = getTimestamp();
-    		const filename = `www/${timestamp}-03.3-screenshot_pass_only_before_page.png`;
-		await page.screenshot({ path: filename, fullPage: true });
-		}
-		//// END DEBUG ////
-                await page.type('#ap_password', amz_password);
-		//// DEBUG ////////
-		if(log_level == "true"){
-		const timestamp = getTimestamp();
-    		const filename = `www/${timestamp}-03.4-screenshot_pass_only_after_page.png`;
-		await page.screenshot({ path: filename, fullPage: true });
-		}
-		//// END DEBUG ////
-            await page.click('#signInSubmit');
-            //await page.waitForNavigation();
-	    await page.waitForNavigation({waitUntil: 'networkidle0',timeout: 0,});
-	}
-
-    // Handle OTP (if required)
-    if (await page.$('#auth-mfa-otpcode')) {
-        const totp = new OTPAuth.TOTP({
-            issuer: 'Amazon',
-            label: amz_login,
-            algorithm: 'SHA1',
-            digits: 6,
-            period: 30,
-            secret: OTPAuth.Secret.fromBase32(secret)
-        });
-        const token = totp.generate();
-        await page.type('#auth-mfa-otpcode', token);
-	//// DEBUG ////////
-	if(log_level == "true"){
-	const timestamp = getTimestamp();
-    	const filename = `www/${timestamp}-04-screenshot_otp_page.png`;
-	await page.screenshot({ path: filename, fullPage: true });
-	}
-	//// END DEBUG ////
-        await page.click('#auth-signin-button');
-        //await page.waitForNavigation();
-	await page.waitForNavigation({waitUntil: 'networkidle0',timeout: 0,});
-    }
+if (!skipLogin) {
+    console.error('Session not authenticated via cookies. Email/password login is not supported.');
+    console.error('Provide valid Cookies_JSON matching your Amazon region.');
+    await browser.close();
+    process.exit(12);
+}
 
     // Navigate to Alexa Shopping List page
+    console.log(`Navigating to shopping list: ${amz_shoppinglist_url}`);
     await page.goto(amz_shoppinglist_url, { waitUntil: 'networkidle2', timeout: 60000 });
 	
     //// DEBUG ////////
@@ -182,7 +172,13 @@ const result = parts.slice(0, 3).join('/');
     //// END DEBUG ////
     
     // Wait for the list to appear
-    await page.waitForSelector('.virtual-list .item-title');
+    console.log('Waiting for selector .virtual-list .item-title');
+    try {
+        await page.waitForSelector('.virtual-list .item-title');
+    } catch (e) {
+        console.error('Failed waiting for list items:', e && e.message ? e.message : e);
+        throw e;
+    }
 
     // Scroll through the list to load all items
     await page.evaluate(async () => {

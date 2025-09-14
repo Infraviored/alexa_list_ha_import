@@ -1,4 +1,29 @@
+## 1.1.0
+
+- **Cookie-only overhaul**
+  - Remove legacy email/password/OTP and sign-in URL options
+  - Enforce cookie-only authentication in scraper (no fallback)
+  - Early validation for HA_Webhook_URL and cookies presence on startup
+  - README rewritten for cookie export/setup; config cleaned
+  - Remove otpauth dependency
+- **Reliable webhook posting under Supervisor**
+  - If SUPERVISOR_TOKEN is present and a webhook id can be parsed, post to `http://supervisor/core/api/webhook/<id>` with Authorization header
+  - Still accepts full external URLs if preferred
+- **Revert to direct webhook URL posting**
+  - Mirror older working behavior by posting directly to `HA_Webhook_URL`
+
+## 1.0.45
+
+- **Fix ENOENT for debug screenshots**
+  - Ensure `www/` is created before any screenshot writes on the stable branch.
 # Changelog
+
+## 1.0.44
+
+- **Cookie Import & Verbose Logging**
+  - Add Cookies_JSON write to /data/cookies.json and import cookies in scraper to skip login when valid.
+  - Add step-by-step logs: cookie sample, navigation steps, login flow, selector waits.
+  - Keep legacy login/OTP as fallback when cookies are missing/invalid.
 
 ## 1.0.42
 
