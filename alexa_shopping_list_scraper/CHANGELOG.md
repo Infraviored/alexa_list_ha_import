@@ -1,3 +1,8 @@
+## 1.1.6
+
+- **Loop Resiliency & Logging**
+  - Run sequentially instead of subshell to avoid silent service exit on errors.
+  - Log non-zero exit codes from scraper/updater and continue to next cycle.
 ## 1.1.5
 
 - **Cycle Start Visibility**
