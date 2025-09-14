@@ -1,3 +1,9 @@
+## 1.1.3
+
+- **Debug and Stability**
+  - Added explicit DEBUG banners and navigation logs so users see when debug is active and where the scraper is going.
+  - Clearer cookie error messages; normalized cookie import already in prior release.
+  - No screenshots or web server, logs only.
 # Changelog
 
 ## 1.1.2
