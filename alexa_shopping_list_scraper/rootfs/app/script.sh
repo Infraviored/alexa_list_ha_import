@@ -20,6 +20,13 @@ fi
 # Infinite loop
 while true; do
   
+  # If Cookies_JSON is provided, write it to /data/cookies.json for the scraper to import (do this before debug prints)
+  if [ -n "$(bashio::config 'Cookies_JSON')" ]; then
+    echo "Writing cookies to /data/cookies.json"
+    mkdir -p /data
+    bashio::config 'Cookies_JSON' > /data/cookies.json
+  fi
+
   if [ "$(bashio::config 'Debug_Log')" == "true" ]; then
     echo "DEBUG: Starting scrape cycle; Debug_Log=true"
     if [ -f /data/cookies.json ]; then
@@ -41,18 +48,22 @@ while true; do
   (
     cd /app/ || exit
     # rm -rf tmp/
-    # If Cookies_JSON is provided, write it to /data/cookies.json for the scraper to import
-    if [ -n "$(bashio::config 'Cookies_JSON')" ]; then
-      echo "Writing cookies to /data/cookies.json"
-      mkdir -p /data
-      bashio::config 'Cookies_JSON' > /data/cookies.json
-    fi
     # Announce environment when debug is enabled
     if [ "$(bashio::config 'Debug_Log')" == "true" ]; then
       echo "Running scrapeAmazon.js with DEBUG enabled"
     fi
     /usr/bin/node /app/scrapeAmazon.js
+    SCRAPE_RC=$?
+    if [ $SCRAPE_RC -ne 0 ]; then
+      echo "ERROR: scrapeAmazon.js exited with code $SCRAPE_RC"
+      exit $SCRAPE_RC
+    fi
     /usr/bin/node /app/updateHA.js
+    UPDATE_RC=$?
+    if [ $UPDATE_RC -ne 0 ]; then
+      echo "ERROR: updateHA.js exited with code $UPDATE_RC"
+      exit $UPDATE_RC
+    fi
   )
 
   # Check if Polling_Interval is zero and exit the loop if so
