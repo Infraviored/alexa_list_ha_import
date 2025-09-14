@@ -2,12 +2,8 @@
 
 # Create .env file from add-on options
 cat > .env <<- EOT
-AMZ_LOGIN=$(bashio::config 'Amazon_Login')
-AMZ_PASS=$(bashio::config 'Amazon_Pass')
-AMZ_SECRET=$(bashio::config 'Amazon_Secret')
 HA_WEBHOOK_URL=$(bashio::config 'HA_Webhook_URL')
 log_level=$(bashio::config 'Debug_Log')
-Amazon_Sign_in_URL=$(bashio::config 'Amazon_Sign_in_URL')
 Amazon_Shopping_List_Page=$(bashio::config 'Amazon_Shopping_List_Page')
 DELETE_AFTER_DOWNLOAD=$(bashio::config 'Delete_After_Download')
 Pooling_Interval=$(bashio::config 'Pooling_Interval')

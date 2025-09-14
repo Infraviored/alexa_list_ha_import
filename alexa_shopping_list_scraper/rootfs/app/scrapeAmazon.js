@@ -13,7 +13,6 @@ puppeteer.use(StealthPlugin())
 
 //////////// end change to stealth
 
-const OTPAuth = require('otpauth');  // For handling OTP
 const fs = require('fs');
 
 function getTimestamp() {
