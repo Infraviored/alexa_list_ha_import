@@ -12,11 +12,7 @@ EOT
 
 Pooling_Interval=$(bashio::config 'Pooling_Interval')
 
-if [ "$(bashio::config 'Debug_Log')" == "true" ]; then
-        echo "Debug mode is enabled. Starting web server for screenshots."
-        mkdir -p /app/www
-        mini_httpd -p 8888 -d /app/www -r "Alexa_Scraper" &
-fi
+# No screenshot webserver; Debug_Log only prints to container logs
 
 # Infinite loop
 while true; do

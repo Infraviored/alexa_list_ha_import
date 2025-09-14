@@ -1,11 +1,12 @@
 # Changelog
 
-## 1.1.1
+## 1.1.2
 
 - **Cookie-based Authentication (polish)**
   - Cleaned up configuration to only require Cookies_JSON, HA_Webhook_URL, Amazon_Shopping_List_Page, Pooling_Interval, Delete_After_Download, Debug_Log.
   - Removed all legacy login/2FA options from config and env generation.
-  - Minor README improvements for cookie export instructions.
+  - Normalize exported cookies (expirationDate→expires, sameSite) for Puppeteer; persist profile under /data.
+  - Removed mini_httpd debug web server.
 
 ## 1.0.42
 

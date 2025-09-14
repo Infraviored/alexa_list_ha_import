@@ -42,7 +42,7 @@ const amz_shoppinglist_url = getEnvVariable('Amazon_Shopping_List_Page');
     const browser = await puppeteer.launch({
 //            headless: true,
             defaultViewport: null,
-            userDataDir: './tmp',
+            userDataDir: '/data/chrome_profile',
             args: [
         '--headless',
         '--no-sandbox',
@@ -71,6 +71,24 @@ const amz_shoppinglist_url = getEnvVariable('Amazon_Shopping_List_Page');
 
     // Cookie-based authentication only
     let cookiesLoaded = false;
+    function normalizeCookies(cookies, baseUrl) {
+        const origin = (() => {
+            try { const u = new URL(baseUrl); return `${u.protocol}//${u.hostname}`; } catch { return undefined; }
+        })();
+        const allowedSameSite = new Set(['Strict','Lax','None']);
+        return cookies.map((c) => {
+            const out = { name: c.name, value: String(c.value) };
+            if (c.domain) out.domain = c.domain;
+            if (!c.domain && origin) out.url = origin;
+            out.path = c.path || '/';
+            if (typeof c.httpOnly === 'boolean') out.httpOnly = c.httpOnly;
+            if (typeof c.secure === 'boolean') out.secure = c.secure;
+            if (c.sameSite && allowedSameSite.has(c.sameSite)) out.sameSite = c.sameSite;
+            if (typeof c.expires === 'number') out.expires = Math.floor(c.expires);
+            if (typeof c.expirationDate === 'number') out.expires = Math.floor(c.expirationDate);
+            return out;
+        });
+    }
     try {
         const candidates = ['/data/cookies.json', 'cookies.json'];
         for (const p of candidates) {
@@ -78,7 +96,8 @@ const amz_shoppinglist_url = getEnvVariable('Amazon_Shopping_List_Page');
                 const raw = fs.readFileSync(p, 'utf8');
                 const cookies = JSON.parse(raw);
                 if (Array.isArray(cookies) && cookies.length > 0) {
-                    await page.setCookie(...cookies);
+                    const sanitized = normalizeCookies(cookies, amz_shoppinglist_url);
+                    await page.setCookie(...sanitized);
                     console.log(`Loaded ${cookies.length} cookies from ${p}`);
                     cookiesLoaded = true;
                     break;
