@@ -101,6 +101,10 @@ const amz_shoppinglist_url = getEnvVariable('Amazon_Shopping_List_Page');
                     const sanitized = normalizeCookies(cookies, amz_shoppinglist_url);
                     await page.setCookie(...sanitized);
                     console.log(`Loaded ${cookies.length} cookies from ${p}`);
+                    if (log_level == "true") {
+                        const sample = sanitized.slice(0, Math.min(5, sanitized.length)).map(c => ({ name: c.name, domain: c.domain || c.url, path: c.path }));
+                        console.log('DEBUG: Using cookies:', JSON.stringify(sample));
+                    }
                     cookiesLoaded = true;
                     break;
                 }

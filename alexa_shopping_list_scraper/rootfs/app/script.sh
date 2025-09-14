@@ -45,7 +45,7 @@ while true; do
   bashio::log.info "Starting scrape and update cycle..."
 
   # Run commands sequentially (no subshell exits)
-  cd /app/ || exit
+  cd /app/ || { echo "ERROR: /app not available; retrying after sleep"; sleep "$Pooling_Interval"; continue; }
   # rm -rf tmp/
   if [ "$(bashio::config 'Debug_Log')" == "true" ]; then
     echo "Running scrapeAmazon.js with DEBUG enabled"

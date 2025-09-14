@@ -24,7 +24,5 @@ schema:
   Delete_After_Download: bool
   Debug_Log: bool 
   Cookies_JSON: str
-ports:
-  8888/tcp: 8888
-ports_description:
-  8888/tcp: Web interface for DEBUG ONLY
+ports: {}
+ports_description: {}

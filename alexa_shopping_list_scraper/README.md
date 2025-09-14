@@ -27,7 +27,7 @@ This add-on now uses cookie-based authentication. Export your Amazon cookies as 
 Once you have the information above, you can install the AddOn and go to the Configuration Tab.<BR>
 In the Configuration add the following information:<BR>
 
-* Cookies_JSON: <PASTE_YOUR_EXPORTED_COOKIES_JSON_HERE> \ # JSON array of cookies exported from your browser for Amazon.<BR><BR>
+* Cookies_JSON: <PASTE_YOUR_EXPORTED_COOKIES_JSON_HERE> \ # Paste the JSON array exactly as exported (include the [ and ] brackets). Multi-line paste is supported using YAML block syntax `|-`.<BR><BR>
 * HA_Webhook_URL: <HOME_ASSISTANT_WEBHOOK_URL> \ # your Home Assistant Webhook URL. More instructions <b>[here](#how-to-get-the-Home-Assistant-Webhook-URL)</b><BR><BR>
 * Delete_After_Download: True/False \ # This option, when enabled, will delete the pulled items from the Amazon Shopping List<BR><BR>
 * Pooling_Interval: <Numebr_Of_Seconds> \ # How often in seconds the script will try to get collect items from the Amazon Shopping List (recommended greater or equal to 180 seconds) - IF set to 0, the AddOn will start, run and stop.
