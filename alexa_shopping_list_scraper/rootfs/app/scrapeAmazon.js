@@ -8,8 +8,8 @@ require('dotenv').config();
 const puppeteer = require('puppeteer-extra')
 
 // add stealth plugin and use defaults (all evasion techniques)
-// const StealthPlugin = require('puppeteer-extra-plugin-stealth')
-// puppeteer.use(StealthPlugin())
+const StealthPlugin = require('puppeteer-extra-plugin-stealth')
+puppeteer.use(StealthPlugin())
 
 //////////// end change to stealth
 
@@ -23,6 +23,16 @@ function getTimestamp() {
 
 function getEnvVariable(key) {
     return process.env[key];
+}
+
+function ensureDirExists(dirPath) {
+    try {
+        if (!fs.existsSync(dirPath)) {
+            fs.mkdirSync(dirPath, { recursive: true });
+        }
+    } catch (e) {
+        // best-effort; continue even if directory creation fails
+    }
 }
 
 // Replace this with your actual secret key you get from the amazon add MFA page - and remove the spaces
@@ -58,6 +68,12 @@ const amz_shoppinglist_url = getEnvVariable('Amazon_Shopping_List_Page');
 
     const page = await browser.newPage();
         page.setDefaultTimeout(60000); // 60 seconds
+        // Use a realistic, recent desktop Chrome UA to reduce bot detection
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+        // Ensure debug output directory exists if logging enabled
+        if (log_level == "true") {
+            ensureDirExists('www');
+        }
 
 // start loop code
 let elementExists = false;
@@ -78,8 +94,10 @@ const result = parts.slice(0, 3).join('/');
 	//// DEBUG ////////
         if(log_level == "true"){
 	const timestamp = getTimestamp();
-    	const filename = `www/${timestamp}-01-screenshot_main_page.png`;
-        await page.screenshot({ path: filename, fullPage: true });
+//    	const filename = `www/${timestamp}-01-screenshot_main_page.png`;
+//        await page.screenshot({ path: filename, fullPage: true });
+	const html = await page.content();
+	console.log(`[DEBUG ${timestamp}] 01-main_page HTML:\n`, html);
         }
         //// END DEBUG ////
 
@@ -92,8 +110,10 @@ const result = parts.slice(0, 3).join('/');
 	//// DEBUG ////////
 	if(log_level == "true"){
 	const timestamp = getTimestamp();
-    	const filename = `www/${timestamp}-02-screenshot_login_page.png`;
-	await page.screenshot({ path: filename, fullPage: true });	
+//    	const filename = `www/${timestamp}-02-screenshot_login_page.png`;
+//	await page.screenshot({ path: filename, fullPage: true });
+	const html = await page.content();
+	console.log(`[DEBUG ${timestamp}] 02-login_page HTML:\n`, html);
 	}
 	//// END DEBUG ////
 	
@@ -106,8 +126,10 @@ const result = parts.slice(0, 3).join('/');
 	    	//// DEBUG ////////
 		if(log_level == "true"){
 		const timestamp = getTimestamp();
-    		const filename = `www/${timestamp}-03.1-screenshot_login_user_and_pass_page.png`;
-      		await page.screenshot({ path: filename, fullPage: true });
+//    			const filename = `www/${timestamp}-03.1-screenshot_login_user_and_pass_page.png`;
+//    			await page.screenshot({ path: filename, fullPage: true });
+		const html = await page.content();
+		console.log(`[DEBUG ${timestamp}] 03.1-login_user_and_pass HTML:\n`, html);
 		}
 		//// END DEBUG ////
             await page.click('#signInSubmit');
@@ -119,8 +141,10 @@ const result = parts.slice(0, 3).join('/');
 		//// DEBUG ////////
 		if(log_level == "true"){
 		const timestamp = getTimestamp();
-    		const filename = `www/${timestamp}-03.2-screenshot_login_only_and_pass_page.png`;
-		await page.screenshot({ path: filename, fullPage: true });
+//    			const filename = `www/${timestamp}-03.2-screenshot_login_only_and_pass_page.png`;
+//		await page.screenshot({ path: filename, fullPage: true });
+		const html = await page.content();
+		console.log(`[DEBUG ${timestamp}] 03.2-login_only_and_pass HTML:\n`, html);
 		}
 		//// END DEBUG ////
             await page.click('#continue');
@@ -129,16 +153,20 @@ const result = parts.slice(0, 3).join('/');
 		//// DEBUG ////////
 		if(log_level == "true"){
 		const timestamp = getTimestamp();
-    		const filename = `www/${timestamp}-03.3-screenshot_pass_only_before_page.png`;
-		await page.screenshot({ path: filename, fullPage: true });
+//    			const filename = `www/${timestamp}-03.3-screenshot_pass_only_before_page.png`;
+//		await page.screenshot({ path: filename, fullPage: true });
+		const html = await page.content();
+		console.log(`[DEBUG ${timestamp}] 03.3-pass_only_before HTML:\n`, html);
 		}
 		//// END DEBUG ////
                 await page.type('#ap_password', amz_password);
 		//// DEBUG ////////
 		if(log_level == "true"){
 		const timestamp = getTimestamp();
-    		const filename = `www/${timestamp}-03.4-screenshot_pass_only_after_page.png`;
-		await page.screenshot({ path: filename, fullPage: true });
+//    			const filename = `www/${timestamp}-03.4-screenshot_pass_only_after_page.png`;
+//		await page.screenshot({ path: filename, fullPage: true });
+		const html = await page.content();
+		console.log(`[DEBUG ${timestamp}] 03.4-pass_only_after HTML:\n`, html);
 		}
 		//// END DEBUG ////
             await page.click('#signInSubmit');
@@ -161,8 +189,10 @@ const result = parts.slice(0, 3).join('/');
 	//// DEBUG ////////
 	if(log_level == "true"){
 	const timestamp = getTimestamp();
-    	const filename = `www/${timestamp}-04-screenshot_otp_page.png`;
-	await page.screenshot({ path: filename, fullPage: true });
+//    	const filename = `www/${timestamp}-04-screenshot_otp_page.png`;
+//	await page.screenshot({ path: filename, fullPage: true });
+	const html = await page.content();
+	console.log(`[DEBUG ${timestamp}] 04-otp_page HTML:\n`, html);
 	}
 	//// END DEBUG ////
         await page.click('#auth-signin-button');
@@ -172,42 +202,89 @@ const result = parts.slice(0, 3).join('/');
 
     // Navigate to Alexa Shopping List page
     await page.goto(amz_shoppinglist_url, { waitUntil: 'networkidle2', timeout: 60000 });
+
+    // Best-effort: accept cookies/consent if presented (Amazon EU/US variants)
+    try {
+        const consentSelectors = ['#sp-cc-accept', 'input[name="accept"]', 'button[name="accept"]', 'button#consent-accept-button'];
+        for (const sel of consentSelectors) {
+            const btn = await page.$(sel);
+            if (btn) {
+                await btn.click();
+                await page.waitForTimeout(1000);
+                break;
+            }
+        }
+    } catch (e) {
+        // ignore
+    }
 	
     //// DEBUG ////////
     if(log_level == "true"){
         const timestamp = getTimestamp();
-        const filename = `www/${timestamp}-05.1-screenshot_shopping_list_page.png`;
-        await page.screenshot({ path: filename, fullPage: true });
+        const html = await page.content();
+        console.log(`[DEBUG ${timestamp}] 05.1-shopping_list_page HTML:\n`, html);
     }
     //// END DEBUG ////
     
-    // Wait for the list to appear
-    await page.waitForSelector('.virtual-list .item-title');
+    // Wait for the list to appear (robust: try multiple candidate selectors)
+    async function waitForAnySelector(pageRef, selectors, options = {}) {
+        const timeoutPerSelectorMs = Math.max(2000, Math.floor((options.timeout || 60000) / Math.max(1, selectors.length)));
+        const waitOptions = { visible: true, timeout: timeoutPerSelectorMs };
+        const failures = [];
+        for (const selector of selectors) {
+            try {
+                await pageRef.waitForSelector(selector, waitOptions);
+                return selector;
+            } catch (err) {
+                failures.push({ selector, error: String(err && err.message ? err.message : err) });
+            }
+        }
+        const timestamp = getTimestamp();
+        try { ensureDirExists('www'); } catch {}
+        // try { await pageRef.screenshot({ path: `www/${timestamp}-ERROR-shopping_list_wait_timeout.png`, fullPage: true }); } catch {}
+        try { fs.writeFileSync(`www/${timestamp}-ERROR-shopping_list_dom.html`, await pageRef.content()); } catch {}
+        try { console.log(`[DEBUG ${timestamp}] ERROR-shopping_list_dom HTML:\n`, await pageRef.content()); } catch {}
+        console.error('Failed waiting for any selector. Attempts:', failures.map(f => f.selector).join(', '));
+        throw new Error('Unable to find shopping list items on the page');
+    }
+
+    const candidateItemTitleSelectors = [
+        '.virtual-list .item-title',              // original
+        '.virtualList .itemTitle',                // camelCase variant
+        '[data-testid="list-item-title"]',      // test id style
+        'div[role="listitem"] .item-title',     // ARIA list items
+        '.list-item .item-title',
+        '.listItem .title',
+        'li .item-title'
+    ];
+
+    const matchedItemSelector = await waitForAnySelector(page, candidateItemTitleSelectors, { timeout: 60000 });
+    console.log(`Using item selector: ${matchedItemSelector}`);
 
     // Scroll through the list to load all items
     await page.evaluate(async () => {
-        const scrollable_list = document.querySelector('.virtual-list');
-        let last_height = scrollable_list.scrollHeight;
-        while (true) {
-            scrollable_list.scrollTo(0, last_height);
-            await new Promise(resolve => setTimeout(resolve, 2000)); // wait for new items to load
-            let new_height = scrollable_list.scrollHeight;
-            if (new_height === last_height) {
+        const container = document.querySelector('.virtual-list') || document.scrollingElement || document.documentElement;
+        let lastHeight = container.scrollHeight || document.body.scrollHeight;
+        for (let i = 0; i < 50; i++) {
+            container.scrollTo(0, lastHeight);
+            await new Promise(resolve => setTimeout(resolve, 1200));
+            const newHeight = container.scrollHeight || document.body.scrollHeight;
+            if (newHeight === lastHeight) {
                 break;
             }
-            last_height = new_height;
+            lastHeight = newHeight;
         }
     });
 
     //// DEBUG ////////
     if(log_level == "true"){
 	const timestamp = getTimestamp();
-    	const filename = `www/${timestamp}-05.2-screenshot_shopping_list_page_scrolled.png`;
-	await page.screenshot({ path: filename, fullPage: true });
+	const html = await page.content();
+	console.log(`[DEBUG ${timestamp}] 05.2-shopping_list_page_scrolled HTML:\n`, html);
     }
     //// END DEBUG ////
 
-  let itemTitles = await page.$$eval(".virtual-list .item-title", items =>
+  let itemTitles = await page.$$eval(matchedItemSelector, items =>
     items.map(item => item.textContent.trim())
   );
 

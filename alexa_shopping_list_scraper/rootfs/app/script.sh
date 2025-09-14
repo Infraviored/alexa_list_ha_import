@@ -11,6 +11,7 @@ Amazon_Sign_in_URL=$(bashio::config 'Amazon_Sign_in_URL')
 Amazon_Shopping_List_Page=$(bashio::config 'Amazon_Shopping_List_Page')
 DELETE_AFTER_DOWNLOAD=$(bashio::config 'Delete_After_Download')
 Pooling_Interval=$(bashio::config 'Pooling_Interval')
+Cookies_JSON=$(bashio::config 'Cookies_JSON')
 EOT
 
 Pooling_Interval=$(bashio::config 'Pooling_Interval')
@@ -29,7 +30,13 @@ while true; do
   # Group commands in a subshell to run them sequentially
   (
     cd /app/ || exit
-    rm -rf tmp/
+    # rm -rf tmp/
+    # If Cookies_JSON is provided, write it to /data/cookies.json for the scraper to import
+    if [ -n "$(bashio::config 'Cookies_JSON')" ]; then
+      echo "Writing cookies to /data/cookies.json"
+      mkdir -p /data
+      bashio::config 'Cookies_JSON' > /data/cookies.json
+    fi
     /usr/bin/node /app/scrapeAmazon.js
     /usr/bin/node /app/updateHA.js
   )
