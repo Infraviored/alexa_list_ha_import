@@ -1,3 +1,9 @@
+## 1.1.5
+
+- **Cycle Start Visibility**
+  - Write cookies before debug prints; pre-cycle debug context shows cookies presence/size and target URL.
+  - Report non-zero exit codes from `scrapeAmazon.js` and `updateHA.js` for quick diagnosis.
+  - Keeps cookie-only auth and normalized cookie import.
 ## 1.1.4
 
 - **Startup Debug Prints**
