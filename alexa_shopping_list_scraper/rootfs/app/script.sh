@@ -20,6 +20,21 @@ fi
 # Infinite loop
 while true; do
   
+  if [ "$(bashio::config 'Debug_Log')" == "true" ]; then
+    echo "DEBUG: Starting scrape cycle; Debug_Log=true"
+    if [ -f /data/cookies.json ]; then
+      echo "DEBUG: cookies.json present (size: $(wc -c < /data/cookies.json) bytes)"
+    else
+      echo "DEBUG: cookies.json not found at /data/cookies.json"
+    fi
+    if [ -n "$(bashio::config 'HA_Webhook_URL')" ]; then
+      echo "DEBUG: HA_Webhook_URL is set"
+    else
+      echo "DEBUG: HA_Webhook_URL is NOT set"
+    fi
+    echo "DEBUG: Amazon_Shopping_List_Page=$(bashio::config 'Amazon_Shopping_List_Page')"
+  fi
+
   bashio::log.info "Starting scrape and update cycle..."
 
   # Group commands in a subshell to run them sequentially

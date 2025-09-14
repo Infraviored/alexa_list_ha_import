@@ -67,6 +67,7 @@ const amz_shoppinglist_url = getEnvVariable('Amazon_Shopping_List_Page');
         // Ensure debug output directory exists if logging enabled
         if (log_level == "true") {
             ensureDirExists('www');
+            console.log("DEBUG is enabled: verbose logs active (HTML at key steps).");
         }
 
     // Cookie-based authentication only
