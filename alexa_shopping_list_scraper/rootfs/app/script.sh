@@ -13,6 +13,9 @@ EOT
 Pooling_Interval=$(bashio::config 'Pooling_Interval')
 
 # No screenshot webserver; Debug_Log only prints to container logs
+if [ "$(bashio::config 'Debug_Log')" == "true" ]; then
+  echo "Debug mode is enabled. Verbose logs will be printed to the add-on logs."
+fi
 
 # Infinite loop
 while true; do
@@ -28,6 +31,10 @@ while true; do
       echo "Writing cookies to /data/cookies.json"
       mkdir -p /data
       bashio::config 'Cookies_JSON' > /data/cookies.json
+    fi
+    # Announce environment when debug is enabled
+    if [ "$(bashio::config 'Debug_Log')" == "true" ]; then
+      echo "Running scrapeAmazon.js with DEBUG enabled"
     fi
     /usr/bin/node /app/scrapeAmazon.js
     /usr/bin/node /app/updateHA.js

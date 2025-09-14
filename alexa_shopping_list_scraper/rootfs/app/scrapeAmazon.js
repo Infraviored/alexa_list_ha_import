@@ -108,7 +108,7 @@ const amz_shoppinglist_url = getEnvVariable('Amazon_Shopping_List_Page');
         console.error('Failed to load cookies:', err && err.message ? err.message : err);
     }
     if (!cookiesLoaded) {
-        console.error('No cookies found. Please paste cookies JSON into Cookies_JSON in add-on options.');
+        console.error('ERROR: No cookies found. Please paste cookies JSON into Cookies_JSON in add-on options.');
         throw new Error('Missing cookies.json');
     }
 
