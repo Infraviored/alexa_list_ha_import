@@ -40,7 +40,6 @@ const amz_shoppinglist_url = getEnvVariable('Amazon_Shopping_List_Page');
 
 (async () => {
   try {
-  try {
     const browser = await puppeteer.launch({
 //            headless: true,
             defaultViewport: null,

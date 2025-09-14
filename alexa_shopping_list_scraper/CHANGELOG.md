@@ -1,3 +1,8 @@
+## 1.1.7
+
+- **Navigation Resilience**
+  - Add retrying navigation to the Alexa Shopping List page (handles 504/timeout).
+  - Top-level error capture in scraper to surface fatal errors in logs.
 ## 1.1.6
 
 - **Loop Resiliency & Logging**
