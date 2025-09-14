@@ -39,6 +39,8 @@ const log_level = getEnvVariable('log_level');
 const amz_shoppinglist_url = getEnvVariable('Amazon_Shopping_List_Page');
 
 (async () => {
+  try {
+  try {
     const browser = await puppeteer.launch({
 //            headless: true,
             defaultViewport: null,
@@ -193,8 +195,24 @@ const amz_shoppinglist_url = getEnvVariable('Amazon_Shopping_List_Page');
 	await page.waitForNavigation({waitUntil: 'networkidle0',timeout: 0,});
     }
 
-    // Navigate to Alexa Shopping List page
-    await page.goto(amz_shoppinglist_url, { waitUntil: 'networkidle2', timeout: 60000 });
+    // Navigate to Alexa Shopping List page with retries (handle 504s/timeouts)
+    async function gotoWithRetries(pageRef, url, attempts = 3) {
+        let lastError;
+        for (let i = 1; i <= attempts; i++) {
+            try {
+                if (log_level == "true") console.log(`Navigating to (${i}/${attempts}): ${url}`);
+                await pageRef.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+                return;
+            } catch (err) {
+                lastError = err;
+                console.error(`Navigation attempt ${i} failed:`, err && err.message ? err.message : err);
+                await new Promise(r => setTimeout(r, 1500 * i));
+            }
+        }
+        throw lastError || new Error('Failed to navigate');
+    }
+
+    await gotoWithRetries(page, amz_shoppinglist_url, 3);
 
     // Best-effort: accept cookies/consent if presented (Amazon EU/US variants)
     try {
@@ -314,4 +332,8 @@ const amz_shoppinglist_url = getEnvVariable('Amazon_Shopping_List_Page');
 
   // Close the browser when done
     await browser.close();
+  } catch (fatalErr) {
+    console.error('FATAL:', fatalErr && fatalErr.stack ? fatalErr.stack : fatalErr);
+    process.exitCode = 1;
+  }
 })();
