@@ -1,12 +1,11 @@
 # Changelog
 
-## 1.1.0
+## 1.1.1
 
-- **Auth Overhaul: Cookie-based Authentication**
-  - Removed password/2FA login from the scraper. Requires cookies exported as JSON from your browser.
-  - New add-on option `Cookies_JSON`; it is written to `/data/cookies.json` and reused each run.
-  - If cookies are missing/expired, the scraper exits with guidance to re-export cookies.
-  - Retains stealth UA and robust selector waiting.
+- **Cookie-based Authentication (polish)**
+  - Cleaned up configuration to only require Cookies_JSON, HA_Webhook_URL, Amazon_Shopping_List_Page, Pooling_Interval, Delete_After_Download, Debug_Log.
+  - Removed all legacy login/2FA options from config and env generation.
+  - Minor README improvements for cookie export instructions.
 
 ## 1.0.42
 

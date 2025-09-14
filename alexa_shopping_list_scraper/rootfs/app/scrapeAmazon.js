@@ -34,13 +34,8 @@ function ensureDirExists(dirPath) {
     }
 }
 
-// Replace this with your actual secret key you get from the amazon add MFA page - and remove the spaces
-const secret = getEnvVariable('AMZ_SECRET');
-const amz_login = getEnvVariable('AMZ_LOGIN');
-const amz_password = getEnvVariable('AMZ_PASS');
 const delete_after_download = getEnvVariable('DELETE_AFTER_DOWNLOAD');
 const log_level = getEnvVariable('log_level');
-const amz_signin_url = getEnvVariable('Amazon_Sign_in_URL');
 const amz_shoppinglist_url = getEnvVariable('Amazon_Shopping_List_Page');
 
 (async () => {
@@ -74,50 +69,29 @@ const amz_shoppinglist_url = getEnvVariable('Amazon_Shopping_List_Page');
             ensureDirExists('www');
         }
 
-// start loop code
-let elementExists = false;
-do {
-//    Navigate to Amazon login page
-//    await page.goto('https://www.amazon.com/ap/signin?openid.pape.max_auth_age=3600&openid.return_to=https%3A%2F%2Fwww.amazon.com%2Falex>
-
-//// Get teh main amaozn page ////
-const url = amz_signin_url;
-const parts = url.split('/');
-const result = parts.slice(0, 3).join('/');
-//console.log(result); 
-
-//// END Get teh main amaozn page ////
-	
-    await page.goto(result, { waitUntil: 'load', timeout: 60000 });
-    await new Promise(resolve => setTimeout(resolve, 1500));
-	//// DEBUG ////////
-        if(log_level == "true"){
-	const timestamp = getTimestamp();
-//    	const filename = `www/${timestamp}-01-screenshot_main_page.png`;
-//        await page.screenshot({ path: filename, fullPage: true });
-	const html = await page.content();
-	console.log(`[DEBUG ${timestamp}] 01-main_page HTML:\n`, html);
+    // Cookie-based authentication only
+    let cookiesLoaded = false;
+    try {
+        const candidates = ['/data/cookies.json', 'cookies.json'];
+        for (const p of candidates) {
+            if (fs.existsSync(p)) {
+                const raw = fs.readFileSync(p, 'utf8');
+                const cookies = JSON.parse(raw);
+                if (Array.isArray(cookies) && cookies.length > 0) {
+                    await page.setCookie(...cookies);
+                    console.log(`Loaded ${cookies.length} cookies from ${p}`);
+                    cookiesLoaded = true;
+                    break;
+                }
+            }
         }
-        //// END DEBUG ////
-
-    //await page.goto('https://www.amazon.com/ap/signin?openid.pape.max_auth_age=3600&openid.return_to=https%3A%2F%2Fwww.amazon.com%2Falex')};
-    //await page.goto(amz_signin_url, { waitUntil: 'load', timeout: 60000 });
-	await page.goto(amz_signin_url, { waitUntil: 'networkidle2', timeout: 0 });
-    elementExists = await page.$('#ap_email') !== null;
-} while (!elementExists);
-
-	//// DEBUG ////////
-	if(log_level == "true"){
-	const timestamp = getTimestamp();
-//    	const filename = `www/${timestamp}-02-screenshot_login_page.png`;
-//	await page.screenshot({ path: filename, fullPage: true });
-	const html = await page.content();
-	console.log(`[DEBUG ${timestamp}] 02-login_page HTML:\n`, html);
-	}
-	//// END DEBUG ////
-	
-	
-/// end loop code
+    } catch (err) {
+        console.error('Failed to load cookies:', err && err.message ? err.message : err);
+    }
+    if (!cookiesLoaded) {
+        console.error('No cookies found. Please paste cookies JSON into Cookies_JSON in add-on options.');
+        throw new Error('Missing cookies.json');
+    }
 
 	if (await page.$('#ap_password')) {
             await page.type('#ap_email', amz_login);
