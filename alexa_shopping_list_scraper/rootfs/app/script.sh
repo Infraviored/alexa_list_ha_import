@@ -44,27 +44,22 @@ while true; do
 
   bashio::log.info "Starting scrape and update cycle..."
 
-  # Group commands in a subshell to run them sequentially
-  (
-    cd /app/ || exit
-    # rm -rf tmp/
-    # Announce environment when debug is enabled
-    if [ "$(bashio::config 'Debug_Log')" == "true" ]; then
-      echo "Running scrapeAmazon.js with DEBUG enabled"
-    fi
-    /usr/bin/node /app/scrapeAmazon.js
-    SCRAPE_RC=$?
-    if [ $SCRAPE_RC -ne 0 ]; then
-      echo "ERROR: scrapeAmazon.js exited with code $SCRAPE_RC"
-      exit $SCRAPE_RC
-    fi
-    /usr/bin/node /app/updateHA.js
-    UPDATE_RC=$?
-    if [ $UPDATE_RC -ne 0 ]; then
-      echo "ERROR: updateHA.js exited with code $UPDATE_RC"
-      exit $UPDATE_RC
-    fi
-  )
+  # Run commands sequentially (no subshell exits)
+  cd /app/ || exit
+  # rm -rf tmp/
+  if [ "$(bashio::config 'Debug_Log')" == "true" ]; then
+    echo "Running scrapeAmazon.js with DEBUG enabled"
+  fi
+  /usr/bin/node /app/scrapeAmazon.js
+  SCRAPE_RC=$?
+  if [ $SCRAPE_RC -ne 0 ]; then
+    echo "ERROR: scrapeAmazon.js exited with code $SCRAPE_RC"
+  fi
+  /usr/bin/node /app/updateHA.js
+  UPDATE_RC=$?
+  if [ $UPDATE_RC -ne 0 ]; then
+    echo "ERROR: updateHA.js exited with code $UPDATE_RC"
+  fi
 
   # Check if Polling_Interval is zero and exit the loop if so
   if [ "$Pooling_Interval" -eq 0 ]; then
