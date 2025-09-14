@@ -1,3 +1,8 @@
+## 1.1.4
+
+- **Startup Debug Prints**
+  - Print debug-start context (cookies.json presence/size, webhook set, target URL) before each cycle when Debug_Log is true.
+  - Add DEBUG banner at scraper start so users see that verbose logging is active immediately.
 ## 1.1.3
 
 - **Debug and Stability**
