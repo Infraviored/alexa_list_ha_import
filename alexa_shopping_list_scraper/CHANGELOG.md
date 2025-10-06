@@ -1,3 +1,17 @@
+## 1.2.1
+
+- **Email/password authentication improvements**
+  - Now checks "Don't require code on this browser" during OTP verification
+  - Device is remembered, reducing future OTP prompts
+  - Added 2-second wait after OTP to handle Amazon redirects/confirmations
+  - Better error handling and debugging for shopping list access failures
+
+- **Enhanced debugging**
+  - Emergency screenshots saved when shopping list items can't be found
+  - Current URL logged on timeout errors
+  - Screenshots saved after OTP verification in debug mode
+  - Better visibility into what page the browser is actually on
+
 ## 1.2.0
 
 - **Dual authentication system with automatic fallback**

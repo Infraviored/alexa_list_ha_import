@@ -237,6 +237,13 @@ if (!skipLogin && (auth_method === 'email_password' || auth_method === 'auto')) 
                 const token = totp.generate();
                 await page.type('#auth-mfa-otpcode', token);
                 
+                // Check "Don't require code on this browser" to remember device
+                const rememberDeviceCheckbox = await page.$('#auth-mfa-remember-device');
+                if (rememberDeviceCheckbox) {
+                    await page.click('#auth-mfa-remember-device');
+                    console.log('[scrape] Checked "remember device" option');
+                }
+                
                 if(log_level == "true"){
                     const timestamp = getTimestamp();
                     const filename = `www/${timestamp}-04-screenshot_otp_page.png`;
@@ -245,6 +252,16 @@ if (!skipLogin && (auth_method === 'email_password' || auth_method === 'auto')) 
                 
                 await page.click('#auth-signin-button');
                 await page.waitForNavigation({waitUntil: 'networkidle0',timeout: 0,});
+                
+                // Wait a bit for any post-OTP redirects/confirmations
+                await sleep(500);
+                
+                if(log_level == "true"){
+                    const timestamp = getTimestamp();
+                    const filename = `www/${timestamp}-04.1-screenshot_after_otp.png`;
+                    await page.screenshot({ path: filename, fullPage: true });
+                    console.log(`[scrape] After OTP - URL: ${page.url()}`);
+                }
             }
             
             skipLogin = true;
@@ -282,15 +299,26 @@ if (!skipLogin) {
         const timestamp = getTimestamp();
         const filename = `www/${timestamp}-05.1-screenshot_shopping_list_page.png`;
         await page.screenshot({ path: filename, fullPage: true });
+        console.log(`[scrape] Shopping list page - URL: ${page.url()}`);
     }
     //// END DEBUG ////
     
     // Wait for the list to appear
     console.log('[scrape] Waiting for selector .virtual-list .item-title');
     try {
-        await page.waitForSelector('.virtual-list .item-title');
+        await page.waitForSelector('.virtual-list .item-title', { timeout: 60000 });
     } catch (e) {
         console.error('[scrape] Failed waiting for list items:', e && e.message ? e.message : e);
+        console.error(`[scrape] Current URL: ${page.url()}`);
+        
+        // Take emergency screenshot to debug
+        try {
+            const timestamp = getTimestamp();
+            const filename = `www/${timestamp}-ERROR-shopping_list_timeout.png`;
+            await page.screenshot({ path: filename, fullPage: true });
+            console.error(`[scrape] Error screenshot saved: ${filename}`);
+        } catch (_) {}
+        
         throw e;
     }
 
