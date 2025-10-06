@@ -1,3 +1,33 @@
+## 1.2.0
+
+- **Dual authentication system with automatic fallback**
+  - Support for both cookie-based AND email/password/OTP authentication
+  - New `Auth_Method` option: `cookies` (default), `email_password`, or `auto`
+  - Auto mode tries cookies first, falls back to email/password if cookies fail
+  - Intelligent error handling with clear logging for each auth method
+  - Re-added OTPAuth dependency for 2FA support
+
+- **Enhanced configuration**
+  - Restored legacy auth options: `Amazon_Login`, `Amazon_Pass`, `Amazon_Secret`, `Amazon_Sign_in_URL`
+  - Fixed script.sh to properly export all auth-related environment variables
+  - Cookie auth remains default for ease of use
+  - Users can choose their preferred method or use auto-fallback for maximum reliability
+
+- **Robust whitespace handling**
+  - Amazon_Secret now automatically strips all whitespace (spaces, tabs, newlines)
+  - Users can paste the secret key with or without spaces - both work
+  - No manual cleanup required
+
+- **Comprehensive documentation**
+  - README completely rewritten with setup guides for both auth methods
+  - Added detailed step-by-step instructions for getting Amazon OTP secret key
+  - Clearer explanation of how to set up 2FA with authenticator apps
+  - Documented the complete Amazon verification process (scan QR, enter OTP, verify)
+  - Added German language hints for international users
+  - Troubleshooting section for common issues
+  - Cookie expiration information (~1 year validity)
+  - Recommended "auto" setup for best reliability
+
 ## 1.1.1
 
 - **Fix external webhook URL authentication**

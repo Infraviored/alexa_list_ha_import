@@ -7,6 +7,11 @@ log_level=$(bashio::config 'Debug_Log')
 Amazon_Shopping_List_Page=$(bashio::config 'Amazon_Shopping_List_Page')
 DELETE_AFTER_DOWNLOAD=$(bashio::config 'Delete_After_Download')
 Pooling_Interval=$(bashio::config 'Pooling_Interval')
+Auth_Method=$(bashio::config 'Auth_Method')
+Amazon_Login=$(bashio::config 'Amazon_Login')
+Amazon_Pass=$(bashio::config 'Amazon_Pass')
+Amazon_Secret=$(bashio::config 'Amazon_Secret')
+Amazon_Sign_in_URL=$(bashio::config 'Amazon_Sign_in_URL')
 EOT
 
 Pooling_Interval=$(bashio::config 'Pooling_Interval')
