@@ -8,13 +8,20 @@ function getEnvVariable(key) {
 }
 
 // URL or ID of the Home Assistant webhook
-const rawWebhook = getEnvVariable('HA_WEBHOOK_URL');
+const rawWebhook = getEnvVariable('HA_Webhook_URL') || getEnvVariable('HA_WEBHOOK_URL');
 const supervisorToken = process.env.SUPERVISOR_TOKEN;
 
 function buildWebhookTarget(raw) {
   if (!raw || typeof raw !== 'string') return { url: null, headers: {} };
   const headers = { 'Content-Type': 'application/json' };
-  // Prefer Supervisor endpoint when possible to bypass local_only/networking constraints
+  
+  // If it's a full external URL (https:// or http://), use it as-is
+  // Webhooks don't require Bearer token authentication
+  if (raw.startsWith('http://') || raw.startsWith('https://')) {
+    return { url: raw, headers };
+  }
+  
+  // For local/internal URLs, prefer Supervisor endpoint when possible to bypass local_only/networking constraints
   try {
     const idMatch = raw.match(/\/api\/webhook\/([^/?#]+)/);
     if (supervisorToken && idMatch && idMatch[1]) {
@@ -22,15 +29,21 @@ function buildWebhookTarget(raw) {
       return { url: `http://supervisor/core/api/webhook/${idMatch[1]}`, headers };
     }
   } catch (_) {}
+  
+  // If just webhook ID is provided
   if (supervisorToken && /^[A-Za-z0-9_-]+$/.test(raw)) {
     headers['Authorization'] = `Bearer ${supervisorToken}`;
     return { url: `http://supervisor/core/api/webhook/${raw}`, headers };
   }
+  
   // Fallback: use provided URL as-is
   return { url: raw, headers };
 }
 
 const { url: webhookUrl, headers: defaultHeaders } = buildWebhookTarget(rawWebhook);
+if (!webhookUrl) {
+  console.error('WebHook URL/ID not configured. Set HA_Webhook_URL in add-on options.');
+}
 
 // Read the JSON file asynchronously
 fs.readFile('list_of_items.json', 'utf8', (err, data) => {

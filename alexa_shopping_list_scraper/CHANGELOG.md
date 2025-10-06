@@ -1,3 +1,10 @@
+## 1.1.1
+
+- **Fix external webhook URL authentication**
+  - Fixed 401 Unauthorized error when using external HTTPS webhook URLs
+  - External URLs (starting with http:// or https://) now bypass supervisor routing and Bearer token authentication
+  - Webhooks are accessed directly as intended, secured only by their unique webhook ID
+
 ## 1.1.0
 
 - **Cookie-only overhaul**

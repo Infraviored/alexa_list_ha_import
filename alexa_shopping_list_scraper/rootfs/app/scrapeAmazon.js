@@ -157,7 +157,7 @@ if (!skipLogin) {
     console.error('Provide valid Cookies_JSON matching your Amazon region.');
     await browser.close();
     process.exit(12);
-}
+    }
 
     // Navigate to Alexa Shopping List page
     console.log(`Navigating to shopping list: ${amz_shoppinglist_url}`);
@@ -174,7 +174,7 @@ if (!skipLogin) {
     // Wait for the list to appear
     console.log('Waiting for selector .virtual-list .item-title');
     try {
-        await page.waitForSelector('.virtual-list .item-title');
+    await page.waitForSelector('.virtual-list .item-title');
     } catch (e) {
         console.error('Failed waiting for list items:', e && e.message ? e.message : e);
         throw e;
