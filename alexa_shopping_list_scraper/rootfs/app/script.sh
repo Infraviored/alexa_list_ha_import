@@ -4,14 +4,13 @@
 cat > .env <<- EOT
 HA_WEBHOOK_URL=$(bashio::config 'HA_Webhook_URL')
 log_level=$(bashio::config 'Debug_Log')
-Amazon_Shopping_List_Page=$(bashio::config 'Amazon_Shopping_List_Page')
 DELETE_AFTER_DOWNLOAD=$(bashio::config 'Delete_After_Download')
 Pooling_Interval=$(bashio::config 'Pooling_Interval')
 Auth_Method=$(bashio::config 'Auth_Method')
 Amazon_Login=$(bashio::config 'Amazon_Login')
 Amazon_Pass=$(bashio::config 'Amazon_Pass')
 Amazon_Secret=$(bashio::config 'Amazon_Secret')
-Amazon_Sign_in_URL=$(bashio::config 'Amazon_Sign_in_URL')
+Amazon_Region=$(bashio::config 'Amazon_Region')
 EOT
 
 Pooling_Interval=$(bashio::config 'Pooling_Interval')
@@ -26,7 +25,6 @@ while true; do
   
   bashio::log.info "Starting scrape and update cycle..."
   echo "Debug_Log=$(bashio::config 'Debug_Log'); Pooling_Interval=${Pooling_Interval}"
-  echo "Target Amazon URL: $(bashio::config 'Amazon_Shopping_List_Page')"
   WEBHOOK=$(bashio::config 'HA_Webhook_URL')
   if [ -z "$WEBHOOK" ] || ! echo "$WEBHOOK" | grep -qE '^https?://'; then
     echo "ERROR: HA_Webhook_URL is missing or invalid. Set it in the add-on configuration."

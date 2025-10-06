@@ -1,3 +1,36 @@
+## 1.2.2
+
+- **Region-based auto-configuration** 🌍
+  - Just set `Amazon_Region` (e.g., `de`, `com`, `co.uk`) - URLs are auto-generated!
+  - Sign-in URL automatically built from region
+  - Shopping list URL automatically built from region
+  - No more manual URL configuration needed
+
+- **Extended region support**
+  - Now supports 19 Amazon regions worldwide
+  - Added: Mexico, Brazil, India, Netherlands, Sweden, Poland, Turkey, UAE, Saudi Arabia, Singapore
+  - Full list: com, de, co.uk, it, fr, es, ca, com.au, co.jp, com.mx, com.br, in, nl, se, pl, com.tr, ae, sa, sg
+
+- **Domain validation**
+  - Automatic validation that cookies match selected region
+  - Clear error messages if domain mismatch detected
+  - Prevents authentication failures due to region mismatches
+
+- **Simplified URLs**
+  - Removed unnecessary `language` parameter from sign-in URLs
+  - Cleaner, shorter URLs
+  - Removed "remember device" checkbox logic for faster login
+
+- **Enhanced startup logging**
+  - Region, auth method, and all assembled URLs logged at startup
+  - Easy verification that correct URLs are being used
+  - Better debugging visibility
+
+- **Configuration improvements**
+  - `Amazon_Shopping_List_Page` now optional (auto-generated from region)
+  - `Amazon_Region` moved to top of config for better UX
+  - Clearer documentation with all supported regions
+
 ## 1.2.1
 
 - **Email/password authentication improvements**

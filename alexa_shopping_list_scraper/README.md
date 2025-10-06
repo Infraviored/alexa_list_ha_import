@@ -34,12 +34,14 @@ This add-on supports **two authentication methods** with intelligent fallback:
 - Copy the JSON (single object `{}` or array `[]`)
 
 ### 2) Configure the add-on
+- Set `Amazon_Region` to your region (e.g., `com` for US, `de` for Germany)
 - Paste JSON into `Cookies_JSON`
 - Set `Auth_Method` to `cookies`
-- Set `Amazon_Shopping_List_Page` to your region URL (see below)
 - Set `HA_Webhook_URL` (see webhook setup below)
 - **Leave email/password fields empty**
 - Save, then Stop and Start the add-on
+
+**Note:** The add-on automatically validates that your cookies match the selected region!
 
 ### Cookie Expiration
 Your cookies will be valid for approximately **1 year**. When they expire:
@@ -93,36 +95,44 @@ Your cookies will be valid for approximately **1 year**. When they expire:
 
 ### 2) Configure the add-on
 - Set `Auth_Method` to `email_password` (or `auto` for fallback)
+- Set `Amazon_Region` to your region code (e.g., `com`, `de`, `co.uk`, `it`)
 - Set `Amazon_Login` to your Amazon email
 - Set `Amazon_Pass` to your Amazon password
 - Set `Amazon_Secret` to your 2FA secret key (remove spaces)
-- Set `Amazon_Sign_in_URL` to your region's sign-in URL (see below)
-- Set `Amazon_Shopping_List_Page` to your region URL
 - Set `HA_Webhook_URL` (see webhook setup below)
 - **Leave `Cookies_JSON` empty** (unless using `auto` mode)
 - Save, then Stop and Start the add-on
 
-### Sign-in URLs by Region
-- **US**: `https://www.amazon.com/ap/signin?openid.pape.max_auth_age=3600&openid.return_to=https%3A%2F%2Fwww.amazon.com%2Falexaquantum%2Fsp%2FalexaShoppingList%3Fref_%3Dlist_d_wl_ys_list_1&openid.identity=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.assoc_handle=amzn_alexa_quantum_us&openid.mode=checkid_setup&language=en_US&openid.claimed_id=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0`
-- **DE**: Replace `.com` with `.de` in the URL above
-- **IT**: Replace `.com` with `.it` in the URL above
-- **UK**: Replace `.com` with `.co.uk` in the URL above
+**Note:** Sign-in URL and shopping list URL are automatically built from your region!
 
----
-
-## Region Shopping List URLs
-- **US**: `https://www.amazon.com/alexaquantum/sp/alexaShoppingList?ref_=list_d_wl_ys_list_1`
-- **DE**: `https://www.amazon.de/alexaquantum/sp/alexaShoppingList?ref_=list_d_wl_ys_list_1`
-- **IT**: `https://www.amazon.it/alexaquantum/sp/alexaShoppingList?ref_=list_d_wl_ys_list_1`
-- **UK**: `https://www.amazon.co.uk/alexaquantum/sp/alexaShoppingList?ref_=list_d_wl_ys_list_1`
-
+### Supported Regions
+The add-on automatically builds the correct sign-in URL based on your `Amazon_Region`:
+- **com** - United States (amazon.com)
+- **de** - Germany (amazon.de)
+- **co.uk** - United Kingdom (amazon.co.uk)
+- **it** - Italy (amazon.it)
+- **fr** - France (amazon.fr)
+- **es** - Spain (amazon.es)
+- **ca** - Canada (amazon.ca)
+- **com.au** - Australia (amazon.com.au)
+- **co.jp** - Japan (amazon.co.jp)
+- **com.mx** - Mexico (amazon.com.mx)
+- **com.br** - Brazil (amazon.com.br)
+- **in** - India (amazon.in)
+- **nl** - Netherlands (amazon.nl)
+- **se** - Sweden (amazon.se)
+- **pl** - Poland (amazon.pl)
+- **com.tr** - Turkey (amazon.com.tr)
+- **ae** - UAE (amazon.ae)
+- **sa** - Saudi Arabia (amazon.sa)
+- **sg** - Singapore (amazon.sg)
 ---
 
 ## Configuration Options
 
 ### Required Settings
 - **`HA_Webhook_URL`**: Home Assistant webhook URL (see setup below)
-- **`Amazon_Shopping_List_Page`**: Your region's shopping list URL
+- **`Amazon_Region`**: Your Amazon region code (e.g., `com`, `de`, `co.uk`, `it`)
 
 ### Authentication Settings
 - **`Auth_Method`**: `cookies` (default), `email_password`, or `auto`
@@ -200,7 +210,7 @@ This configuration will:
 - Remove any spaces from the `Amazon_Secret` field
 
 ### No items found
-- Verify the `Amazon_Shopping_List_Page` URL is correct for your region
+- Verify the `Amazon_Region` is correctly set for your account
 - Check that you have items in your Alexa shopping list
 - Enable `Debug_Log: true` and check screenshots at `http://homeassistant.local:8888`
 

@@ -17,17 +17,83 @@ async function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// Region configuration - simplified
+const REGION_CONFIG = {
+    'com': { domain: 'com', handle: 'amzn_alexa_quantum_us' },
+    'de': { domain: 'de', handle: 'amzn_alexa_quantum_de' },
+    'co.uk': { domain: 'co.uk', handle: 'amzn_alexa_quantum_uk' },
+    'it': { domain: 'it', handle: 'amzn_alexa_quantum_it' },
+    'fr': { domain: 'fr', handle: 'amzn_alexa_quantum_fr' },
+    'es': { domain: 'es', handle: 'amzn_alexa_quantum_es' },
+    'ca': { domain: 'ca', handle: 'amzn_alexa_quantum_ca' },
+    'com.au': { domain: 'com.au', handle: 'amzn_alexa_quantum_au' },
+    'co.jp': { domain: 'co.jp', handle: 'amzn_alexa_quantum_jp' },
+    'com.mx': { domain: 'com.mx', handle: 'amzn_alexa_quantum_mx' },
+    'com.br': { domain: 'com.br', handle: 'amzn_alexa_quantum_br' },
+    'in': { domain: 'in', handle: 'amzn_alexa_quantum_in' },
+    'nl': { domain: 'nl', handle: 'amzn_alexa_quantum_nl' },
+    'se': { domain: 'se', handle: 'amzn_alexa_quantum_se' },
+    'pl': { domain: 'pl', handle: 'amzn_alexa_quantum_pl' },
+    'com.tr': { domain: 'com.tr', handle: 'amzn_alexa_quantum_tr' },
+    'ae': { domain: 'ae', handle: 'amzn_alexa_quantum_ae' },
+    'sa': { domain: 'sa', handle: 'amzn_alexa_quantum_sa' },
+    'sg': { domain: 'sg', handle: 'amzn_alexa_quantum_sg' }
+};
+
+// Build Amazon URLs from region
+function buildAmazonUrls(region) {
+    const config = REGION_CONFIG[region] || REGION_CONFIG['com'];
+    const domain = config.domain;
+    const handle = config.handle;
+    
+    return {
+        signInUrl: `https://www.amazon.${domain}/ap/signin?openid.pape.max_auth_age=3600&openid.return_to=https%3A%2F%2Fwww.amazon.${domain}%2Falexaquantum%2Fsp%2FalexaShoppingList%3Fref_%3Dlist_d_wl_ys_list_1&openid.identity=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.assoc_handle=${handle}&openid.mode=checkid_setup&openid.claimed_id=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0`,
+        shoppingListUrl: `https://www.amazon.${domain}/alexaquantum/sp/alexaShoppingList?ref_=list_d_wl_ys_list_1`,
+        domain: domain
+    };
+}
+
+// Validate cookies match selected region
+function validateCookieDomain(cookies, expectedDomain) {
+    if (!cookies || cookies.length === 0) return { valid: true, message: '' };
+    
+    const cookieDomains = cookies.map(c => c.domain).filter(d => d);
+    const mainDomains = cookieDomains.filter(d => d.includes('amazon'));
+    
+    if (mainDomains.length === 0) return { valid: true, message: '' };
+    
+    const mismatch = mainDomains.find(d => !d.includes(`.amazon.${expectedDomain}`) && !d.includes(`amazon.${expectedDomain}`));
+    
+    if (mismatch) {
+        return {
+            valid: false,
+            message: `⚠️  Cookie domain mismatch! Your cookies are for "${mismatch}" but Amazon_Region is set to "${expectedDomain}". Please export cookies from the correct Amazon region or update Amazon_Region.`
+        };
+    }
+    
+    return { valid: true, message: '' };
+}
+
 // Authentication configuration
 const auth_method = getEnvVariable('Auth_Method') || 'cookies';  // cookies, email_password, or auto
 const secret = getEnvVariable('Amazon_Secret') ? getEnvVariable('Amazon_Secret').replace(/\s/g, '') : null;  // Remove all whitespace
 const amz_login = getEnvVariable('Amazon_Login');
 const amz_password = getEnvVariable('Amazon_Pass');
-const amz_signin_url = getEnvVariable('Amazon_Sign_in_URL');
-const amz_shoppinglist_url = getEnvVariable('Amazon_Shopping_List_Page');
+const amz_region = getEnvVariable('Amazon_Region') || 'com';
+const amazonUrls = buildAmazonUrls(amz_region);
+const amz_signin_url = amazonUrls.signInUrl;
+const amz_shoppinglist_url = amazonUrls.shoppingListUrl;  // Auto-generated from region
 const delete_after_download = getEnvVariable('DELETE_AFTER_DOWNLOAD');
 const log_level = getEnvVariable('log_level');
 
+// Log configuration at startup
+console.log('[scrape] ═══════════════════════════════════════════════════════════');
+console.log(`[scrape] Amazon Region: ${amz_region}`);
 console.log(`[scrape] Authentication method: ${auth_method}`);
+console.log(`[scrape] Sign-in URL: ${amz_signin_url}`);
+console.log(`[scrape] Shopping List URL: ${amz_shoppinglist_url}`);
+console.log('[scrape] ═══════════════════════════════════════════════════════════');
+console.log('');
 
 (async () => {
     const browser = await puppeteer.launch({
@@ -94,6 +160,13 @@ if (auth_method === 'cookies' || auth_method === 'auto') {
                 }
                 const sample = mapped.slice(0, Math.min(5, mapped.length)).map(c => ({ name: c.name, domain: c.domain || '(url)', path: c.path }));
                 console.log('[scrape] Cookie sample:', JSON.stringify(sample));
+                
+                // Validate cookie domain matches selected region
+                const validation = validateCookieDomain(srcCookies, amazonUrls.domain);
+                if (!validation.valid) {
+                    console.error(`[scrape] ${validation.message}`);
+                    throw new Error(validation.message);
+                }
                 
                 // Test if cookies work
                 try {
@@ -237,13 +310,6 @@ if (!skipLogin && (auth_method === 'email_password' || auth_method === 'auto')) 
                 const token = totp.generate();
                 await page.type('#auth-mfa-otpcode', token);
                 
-                // Check "Don't require code on this browser" to remember device
-                const rememberDeviceCheckbox = await page.$('#auth-mfa-remember-device');
-                if (rememberDeviceCheckbox) {
-                    await page.click('#auth-mfa-remember-device');
-                    console.log('[scrape] Checked "remember device" option');
-                }
-                
                 if(log_level == "true"){
                     const timestamp = getTimestamp();
                     const filename = `www/${timestamp}-04-screenshot_otp_page.png`;
@@ -252,9 +318,6 @@ if (!skipLogin && (auth_method === 'email_password' || auth_method === 'auto')) 
                 
                 await page.click('#auth-signin-button');
                 await page.waitForNavigation({waitUntil: 'networkidle0',timeout: 0,});
-                
-                // Wait a bit for any post-OTP redirects/confirmations
-                await sleep(500);
                 
                 if(log_level == "true"){
                     const timestamp = getTimestamp();
