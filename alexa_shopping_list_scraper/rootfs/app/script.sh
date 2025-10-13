@@ -16,8 +16,7 @@ EOT
 Pooling_Interval=$(bashio::config 'Pooling_Interval')
 
 if [ "$(bashio::config 'Debug_Log')" == "true" ]; then
-        echo "Debug mode is enabled. Verbose logs will be printed."
-        set -x
+        echo "Debug mode enabled. Detailed scraper diagnostics will be shown."
 fi
 
 # Infinite loop
@@ -33,27 +32,33 @@ while true; do
   # Run commands sequentially and log exit codes (avoid silent exits)
   cd /app/ || { echo "ERROR: /app not available; retrying after sleep"; sleep "$Pooling_Interval"; continue; }
   # Keep browser profile persistent; do not delete tmp/
-  # Cookies handling with xtrace fully silenced to prevent huge logs
-  mkdir -p /data
-  { set +x; TMP_COOKIES=$(mktemp -p /data cookies.XXXXXX); RAW_COOKIES=$(bashio::config 'Cookies_JSON'); } 2>/dev/null
-  COOKIES_LEN=${#RAW_COOKIES}
-  echo "Cookies_JSON length: ${COOKIES_LEN}"
-  { printf %s "$RAW_COOKIES" > "$TMP_COOKIES"; } 2>/dev/null
-  COOKIES_SIZE=$(wc -c < "$TMP_COOKIES" | tr -d ' ')
-  if [ "${COOKIES_SIZE:-0}" -gt 2 ]; then
-    echo "Writing cookies to /data/cookies.json"
-    mv "$TMP_COOKIES" /data/cookies.json
-    echo "cookies.json size: ${COOKIES_SIZE} bytes"
+  
+  # Only write cookies if using cookie-based or auto authentication
+  AUTH_METHOD=$(bashio::config 'Auth_Method')
+  if [ "$AUTH_METHOD" == "cookies" ] || [ "$AUTH_METHOD" == "auto" ]; then
+    # Cookies handling with xtrace fully silenced to prevent huge logs
+    mkdir -p /data
+    { set +x; TMP_COOKIES=$(mktemp -p /data cookies.XXXXXX); RAW_COOKIES=$(bashio::config 'Cookies_JSON'); } 2>/dev/null
+    COOKIES_LEN=${#RAW_COOKIES}
+    echo "Cookies_JSON length: ${COOKIES_LEN}"
+    { printf %s "$RAW_COOKIES" > "$TMP_COOKIES"; } 2>/dev/null
+    COOKIES_SIZE=$(wc -c < "$TMP_COOKIES" | tr -d ' ')
+    if [ "${COOKIES_SIZE:-0}" -gt 2 ]; then
+      echo "Writing cookies to /data/cookies.json"
+      mv "$TMP_COOKIES" /data/cookies.json
+      echo "cookies.json size: ${COOKIES_SIZE} bytes"
+    else
+      rm -f "$TMP_COOKIES"
+      echo "No Cookies_JSON provided in add-on config."
+    fi
+    if [ -f /data/cookies.json ]; then
+      echo "cookies.json present, size $(wc -c < /data/cookies.json) bytes"
+    else
+      echo "cookies.json missing"
+    fi
   else
-    rm -f "$TMP_COOKIES"
-    echo "No Cookies_JSON provided in add-on config."
+    echo "Auth method: ${AUTH_METHOD} (skipping cookie file write)"
   fi
-  if [ -f /data/cookies.json ]; then
-    echo "cookies.json present, size $(wc -c < /data/cookies.json) bytes"
-  else
-    echo "cookies.json missing"
-  fi
-  { if [ "$(bashio::config 'Debug_Log')" == "true" ]; then set -x; fi; } 2>/dev/null
   echo "Running scrapeAmazon.js"
   set +e
   /usr/bin/node /app/scrapeAmazon.js 2>&1 | while IFS= read -r line; do printf '[scrape] %s\n' "$line"; done

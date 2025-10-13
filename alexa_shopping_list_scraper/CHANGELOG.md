@@ -1,151 +1,51 @@
 ## 1.2.2
 
-- **Region-based auto-configuration** 🌍
-  - Just set `Amazon_Region` (e.g., `de`, `com`, `co.uk`) - URLs are auto-generated!
-  - Sign-in URL automatically built from region
-  - Shopping list URL automatically built from region
-  - No more manual URL configuration needed
-
-- **Extended region support**
-  - Now supports 19 Amazon regions worldwide
-  - Added: Mexico, Brazil, India, Netherlands, Sweden, Poland, Turkey, UAE, Saudi Arabia, Singapore
-  - Full list: com, de, co.uk, it, fr, es, ca, com.au, co.jp, com.mx, com.br, in, nl, se, pl, com.tr, ae, sa, sg
-
-- **Domain validation**
-  - Automatic validation that cookies match selected region
-  - Clear error messages if domain mismatch detected
-  - Prevents authentication failures due to region mismatches
-
-- **Simplified URLs**
-  - Removed unnecessary `language` parameter from sign-in URLs
-  - Cleaner, shorter URLs
-  - Removed "remember device" checkbox logic for faster login
-
-- **Enhanced startup logging**
-  - Region, auth method, and all assembled URLs logged at startup
-  - Easy verification that correct URLs are being used
-  - Better debugging visibility
-
-- **Configuration improvements**
-  - `Amazon_Shopping_List_Page` now optional (auto-generated from region)
-  - `Amazon_Region` moved to top of config for better UX
-  - Clearer documentation with all supported regions
+- **Fix bot detection issues with comprehensive diagnostics**
+  - Aggressive cookie/storage overrides to bypass Amazon's JavaScript checks
+  - Comprehensive testing of `navigator.cookieEnabled`, `document.cookie`, localStorage, sessionStorage
+  - Intelligent error diagnosis distinguishes cookie vs credential failures
+  - Automatic cookie warning workaround with page reload
+  - Full HTML dumps on error (debug mode)
+  - Cookie file only written for cookie-based/auto authentication methods
 
 ## 1.2.1
 
-- **Email/password authentication improvements**
-  - Now checks "Don't require code on this browser" during OTP verification
-  - Device is remembered, reducing future OTP prompts
-  - Added 2-second wait after OTP to handle Amazon redirects/confirmations
-  - Better error handling and debugging for shopping list access failures
-
-- **Enhanced debugging**
-  - Emergency screenshots saved when shopping list items can't be found
-  - Current URL logged on timeout errors
-  - Screenshots saved after OTP verification in debug mode
-  - Better visibility into what page the browser is actually on
+- **improved scraping error logging and automatic retries**: no longer aborts on scrape failure but sleeps and retries; better error logging for item extraction
 
 ## 1.2.0
 
-- **Dual authentication system with automatic fallback**
-  - Support for both cookie-based AND email/password/OTP authentication
-  - New `Auth_Method` option: `cookies` (default), `email_password`, or `auto`
-  - Auto mode tries cookies first, falls back to email/password if cookies fail
-  - Intelligent error handling with clear logging for each auth method
-  - Re-added OTPAuth dependency for 2FA support
+- **Dropped `Cookies_Path`; only use `Cookies_JSON`**: The Home Assistant add-on now accepts cookies only via the `Cookies_JSON` parameter. This simplifies configuration and avoids file path issues in containerized environments.
+- **Removed `Cookies_Path` from config**: The option to use `Cookies_Path` is no longer available in the add-on configuration.
 
-- **Enhanced configuration**
-  - Restored legacy auth options: `Amazon_Login`, `Amazon_Pass`, `Amazon_Secret`, `Amazon_Sign_in_URL`
-  - Fixed script.sh to properly export all auth-related environment variables
-  - Cookie auth remains default for ease of use
-  - Users can choose their preferred method or use auto-fallback for maximum reliability
+## 1.1.7
 
-- **Robust whitespace handling**
-  - Amazon_Secret now automatically strips all whitespace (spaces, tabs, newlines)
-  - Users can paste the secret key with or without spaces - both work
-  - No manual cleanup required
+- **Bugfix for the case when website redirects to the login-page**: Added logic to detect whether the scraper is on the sign-in page after loading the shopping list URL. If so, authentication likely failed (cookies expired or invalid), and the script exits with an informative error message.
 
-- **Comprehensive documentation**
-  - README completely rewritten with setup guides for both auth methods
-  - Added detailed step-by-step instructions for getting Amazon OTP secret key
-  - Clearer explanation of how to set up 2FA with authenticator apps
-  - Documented the complete Amazon verification process (scan QR, enter OTP, verify)
-  - Added German language hints for international users
-  - Troubleshooting section for common issues
-  - Cookie expiration information (~1 year validity)
-  - Recommended "auto" setup for best reliability
+## 1.1.6
+
+- **Added scraper user agent header and debugging improvements**: The scraper now sets a consistent user agent string (`'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36'`) to mimic a real browser. This helps avoid potential detection or issues with Amazon's server. Debug logging also includes more details about the HTTP requests, page navigation, and the final list of items found, making troubleshooting easier.
+
+## 1.1.5
+
+- **Enhanced debugging and dynamic wait**: Introduced an optional `Debug_Log` parameter (default: `false`). When enabled, the script runs in non-headless mode, takes screenshots at each login/navigation step, and enables verbose console/network logging in Chrome. Additionally, the scraper now waits for the shopping list items to appear on the page (using `waitForSelector`) instead of relying solely on a fixed timeout, improving reliability.
+
+## 1.1.4
+
+- **Interactive Login and OTP support**: The scraper now supports logging into your Amazon account using email and password (with optional OTP).  
+  If no valid cookies are provided, it navigates to the Amazon sign-in page, prompts you to enter credentials (and OTP if required), and then proceeds to scrape the shopping list. This makes the add-on more flexible and easier to use without having to manually extract cookies every time they expire.
+
+## 1.1.3
+
+- **Multiple Ways to Provide Cookies & Automatic Fallback**: You can now use either `Cookies_Path` or `Cookies_JSON` in the add-on configuration. If both are set, `Cookies_JSON` takes precedence. This gives you more flexibility in how you manage session cookies.
+
+## 1.1.2
+
+- **Automatic Retry on Cookies Expired**: No longer crashes if cookies expire. Instead, the script logs an error and waits for the next polling cycle, allowing you time to update the cookies without restarting the add-on.
 
 ## 1.1.1
 
-- **Fix external webhook URL authentication**
-  - Fixed 401 Unauthorized error when using external HTTPS webhook URLs
-  - External URLs (starting with http:// or https://) now bypass supervisor routing and Bearer token authentication
-  - Webhooks are accessed directly as intended, secured only by their unique webhook ID
+- **Added CHANGELOG**: Introduced this file to keep track of changes across versions.
 
 ## 1.1.0
 
-- **Cookie-only overhaul**
-  - Remove legacy email/password/OTP and sign-in URL options
-  - Enforce cookie-only authentication in scraper (no fallback)
-  - Early validation for HA_Webhook_URL and cookies presence on startup
-  - README rewritten for cookie export/setup; config cleaned
-  - Remove otpauth dependency
-- **Reliable webhook posting under Supervisor**
-  - If SUPERVISOR_TOKEN is present and a webhook id can be parsed, post to `http://supervisor/core/api/webhook/<id>` with Authorization header
-  - Still accepts full external URLs if preferred
-- **Revert to direct webhook URL posting**
-  - Mirror older working behavior by posting directly to `HA_Webhook_URL`
-
-## 1.0.45
-
-- **Fix ENOENT for debug screenshots**
-  - Ensure `www/` is created before any screenshot writes on the stable branch.
-# Changelog
-
-## 1.0.44
-
-- **Cookie Import & Verbose Logging**
-  - Add Cookies_JSON write to /data/cookies.json and import cookies in scraper to skip login when valid.
-  - Add step-by-step logs: cookie sample, navigation steps, login flow, selector waits.
-  - Keep legacy login/OTP as fallback when cookies are missing/invalid.
-
-## 1.0.42
-
-- **Critical Performance Fix**
-  - Refactored main execution loop to eliminate a "busy-wait" bug that caused high, persistent CPU usage while the add-on was supposed to be sleeping.
-
-## 1.0.41
-
-- **Major Logging Overhaul**
-  - Cleaned up noisy debug logs by removing redundant package installations and system error messages.
-  - Added clear, concise logging for normal operation (e.g., "Found 5 items", "Transferred item: 'Milk'").
-  - Re-formatted debug output to be clean and human-readable.
-- **Fix Scraper Reliability**
-  - Resolves a race condition where items were missed by implementing a scrolling mechanism to ensure the entire virtual list is loaded before scraping.
-  - Fixes a latent bug causing intermittent 2FA failures by generating the OTP token just-in-time, preventing the use of a stale token during login.
-
-## 1.0.39
-
-- Patched puppeteer chromium dependency conflict to fix add-on startup.
-- Refactored Dockerfile for build stability and improved caching.
-
-## 1.0.38
-
-- If Pooling_Internal is set to Zero, the AddOn will start, run and then stop.
-
-## 1.0.32
-
-- Fixed timeout issues for non US URLs (i.e. https://www.amazon.de)
-
-## 1.0.31
-
-- Added Home Assistant Blueprint to Repository (Thanks to [N1c093](https://github.com/N1c093))
-
-## 1.0.30
-
-- Fix issues with the Browser and ARM Platform
-
-## 1.0.29
-
-- Added "Delete_After_Download" option to delete items<br>after they were pulled from Amazon List and added to Home Assistant<br>  (Thanks to [stefangries](https://github.com/stefangries))
- 
+- **Initial stable release with cookie-based authentication**: Uses Puppeteer to navigate to the Amazon Alexa Shopping List page with cookies exported from the user's browser. Scrapes list items and sends them to a Home Assistant webhook.
