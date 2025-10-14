@@ -3,10 +3,8 @@ alexa_shopping_list_scraper/rootfs/app/env.example
 alexa_shopping_list_scraper/rootfs/app/.env
 alexa_shopping_list_scraper/rootfs/app/chrome_profile_dev/
 alexa_shopping_list_scraper/rootfs/app/venv/
-alexa_shopping_list_scraper/rootfs/app/error_screenshot_*.png
 alexa_shopping_list_scraper/rootfs/app/list_of_items.json
 alexa_shopping_list_scraper/rootfs/app/amazon_cookies_dev.json
-alexa_shopping_list_scraper/rootfs/app/error_page_source.html
 __pycache__/
 *.pyc
 *.pyo

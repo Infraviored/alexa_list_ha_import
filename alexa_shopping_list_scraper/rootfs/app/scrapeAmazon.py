@@ -19,9 +19,9 @@ from dotenv import load_dotenv
 # Load .env file
 load_dotenv()
 
-def log(message, prefix="[scrape]"):
+def log(message, prefix=""):
     """Print with timestamp"""
-    print(f"{prefix} {message}", flush=True)
+    print(f"{message}", flush=True)
 
 def get_env(key, default=None):
     """Get environment variable"""
@@ -35,6 +35,7 @@ class AmazonShoppingListScraper:
         self.otp_secret = get_env('Amazon_Secret')
         self.debug = get_env('log_level', '').lower() == 'true'
         self.force_headless = get_env('FORCE_HEADLESS', '').lower() == 'true'
+        self.check_after_import = get_env('CHECK_AFTER_IMPORT', '').lower() == 'true'
         
         self.base_url = f"https://www.amazon.{self.region}"
         self.signin_url = self._build_signin_url()
@@ -163,13 +164,8 @@ class AmazonShoppingListScraper:
                 log(f"❌ Failed to enter email: {e}")
                 log(f"   Current URL: {self.driver.current_url}")
                 log(f"   Page title: {self.driver.title}")
-                log(f"   Full traceback:\n{traceback.format_exc()}")
-                try:
-                    screenshot_path = f"error_screenshot_{int(time.time())}.png"
-                    self.driver.save_screenshot(screenshot_path)
-                    log(f"   Screenshot saved: {screenshot_path}")
-                except Exception as ss_err:
-                    log(f"   Could not save screenshot: {ss_err}")
+                if self.debug:
+                    log(f"   Full traceback:\n{traceback.format_exc()}")
                 return False
             
             # Enter password
@@ -260,6 +256,7 @@ class AmazonShoppingListScraper:
             )
             
             items = []
+            checkboxes_to_click = []  # Store checkboxes to mark as complete
             
             # Find all item containers (each item is in a div with class containing pattern)
             # Look for all checkboxes (one per item)
@@ -293,6 +290,10 @@ class AmazonShoppingListScraper:
                             'completed': is_completed
                         })
                         log(f"  ✓ {item_text} {'(✅ completed)' if is_completed else ''}")
+                        
+                        # If not already completed and check_after_import is enabled, store for clicking
+                        if not is_completed and self.check_after_import:
+                            checkboxes_to_click.append(checkbox)
                     else:
                         log(f"  ⚠️  Found checkbox but no title")
                 
@@ -303,11 +304,25 @@ class AmazonShoppingListScraper:
             
             log(f"✅ Found {len(items)} items total")
             
-            # Save to file
+            # Save to file for IPC
             with open('list_of_items.json', 'w', encoding='utf-8') as f:
                 json.dump(items, f, indent=2, ensure_ascii=False)
             
-            log("💾 Saved to list_of_items.json")
+            # Mark items as completed on Amazon if enabled
+            if self.check_after_import and checkboxes_to_click:
+                log(f"✅ Marking {len(checkboxes_to_click)} items as completed on Amazon...")
+                for checkbox in checkboxes_to_click:
+                    try:
+                        # Scroll to element and click
+                        self.driver.execute_script("arguments[0].scrollIntoView(true);", checkbox)
+                        time.sleep(0.1)
+                        checkbox.click()
+                        time.sleep(0.1)
+                    except Exception as e:
+                        if self.debug:
+                            log(f"⚠️  Failed to click checkbox: {e}")
+                log(f"✅ Marked {len(checkboxes_to_click)} items as completed")
+            
             return True
             
         except Exception as e:
@@ -315,13 +330,6 @@ class AmazonShoppingListScraper:
             if self.debug:
                 import traceback
                 log(f"   Full traceback:\n{traceback.format_exc()}")
-                try:
-                    # Save page source for debugging
-                    with open('error_page_source.html', 'w', encoding='utf-8') as f:
-                        f.write(self.driver.page_source)
-                    log("   Page source saved to error_page_source.html")
-                except:
-                    pass
             return False
     
     def run(self):

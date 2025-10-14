@@ -4,7 +4,7 @@
 cat > .env <<- EOT
 HA_WEBHOOK_URL=$(bashio::config 'HA_Webhook_URL')
 log_level=$(bashio::config 'Debug_Log')
-DELETE_AFTER_DOWNLOAD=$(bashio::config 'Delete_After_Download')
+CHECK_AFTER_IMPORT=$(bashio::config 'Check_after_import')
 Pooling_Interval=$(bashio::config 'Pooling_Interval')
 Amazon_Login=$(bashio::config 'Amazon_Login')
 Amazon_Pass=$(bashio::config 'Amazon_Pass')
@@ -32,15 +32,11 @@ while true; do
   cd /app/ || { echo "ERROR: /app not available; retrying after sleep"; sleep "$Pooling_Interval"; continue; }
   
   # Authentication via email/password with OTP (stateless, no cookies)
-  echo "Running scrapeAmazon.py (undetected-chromedriver)"
   set +e
   /usr/bin/python3 /app/scrapeAmazon.py 2>&1 | while IFS= read -r line; do printf '[scrape] %s\n' "$line"; done
   scrape_ec=${PIPESTATUS[0]:-0}
-  echo "scrapeAmazon.py exited with code ${scrape_ec}"
-  echo "Running updateHA.js"
   /usr/bin/node /app/updateHA.js 2>&1 | while IFS= read -r line; do printf '[update] %s\n' "$line"; done
   update_ec=${PIPESTATUS[0]:-0}
-  echo "updateHA.js exited with code ${update_ec}"
   set -e
 
   # Check if Polling_Interval is zero and exit the loop if so

@@ -1,6 +1,6 @@
 name: "Alexa Shopping List Scraper"
 description: "The project scrapes the Amazon Shopping List page and add the items to the Home Assistant Shopping List (todo list) every 3 minutes"
-version: "2.0.0"
+version: "2.0.1"
 slug: "alexa_shopping_list_scraper"
 init: false
 url: "https://github.com/Infraviored/alexa_list_ha_import"
@@ -14,7 +14,7 @@ options:
   HA_Webhook_URL: "HOME_ASSISTANT_WEBHOOK_URL"
   Amazon_Region: "com"
   Pooling_Interval: "180"
-  Delete_After_Download: False
+  Check_after_import: False
   Debug_Log: False
   Amazon_Login: ""
   Amazon_Pass: ""
@@ -23,12 +23,8 @@ schema:
   HA_Webhook_URL: str
   Amazon_Region: list(com|de|co.uk|it|fr|es|ca|com.au|co.jp|com.mx|com.br|in|nl|se|pl|com.tr|ae|sa|sg)
   Pooling_Interval: int
-  Delete_After_Download: bool
+  Check_after_import: bool
   Debug_Log: bool
   Amazon_Login: str
   Amazon_Pass: password
   Amazon_Secret: password
-ports:
-  8888/tcp: 8888
-ports_description:
-  8888/tcp: Web interface for DEBUG ONLY

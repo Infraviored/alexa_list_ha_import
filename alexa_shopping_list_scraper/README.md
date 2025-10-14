@@ -102,7 +102,7 @@ The add-on automatically builds the correct sign-in URL based on your `Amazon_Re
 
 ### Optional Settings
 - **`Pooling_Interval`**: Seconds between checks (default: 180)
-- **`Delete_After_Download`**: Delete items from Amazon after sync (default: false)
+- **`Check_after_import`**: Mark items as completed on Amazon's Alexa list after importing to Home Assistant (default: false)
 - **`Debug_Log`**: Enable verbose logging (default: false)
 
 ---
