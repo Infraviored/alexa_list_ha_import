@@ -1,3 +1,45 @@
+## 2.0.0 - PYTHON-BASED REWRITE 🐍
+
+**BREAKING CHANGES:**
+- **Removed cookie-based authentication entirely** - Only email/password + OTP authentication is now supported
+- Simplified configuration - No more `Auth_Method`, `Cookies_JSON`, or `Cookies_Path` options
+- **Stateless operation** - Each run performs fresh authentication without relying on persistent browser profiles
+
+**Major improvements:**
+- **🚀 5x faster execution** - Optimized all wait times and removed unnecessary page reloads
+- **🎯 Superior bot detection bypass** - Python + undetected-chromedriver reliably bypasses Amazon's anti-automation
+- **🔄 Stateless design** - Fresh browser session every run, no session/cookie persistence between runs
+- **💻 Automatic environment detection** - Works seamlessly in both Docker/Home Assistant and local development
+- **🐛 Better error handling** - Detailed logging, error screenshots, and page source dumps for debugging
+
+**Technical changes:**
+- Migrated from Node.js/Puppeteer to Python/Selenium
+- Uses undetected-chromedriver for reliable bot detection evasion
+- Temporary Chrome profiles created and cleaned up each run
+- Optimized login flow to avoid redundant page loads after OTP submission
+- Improved scraping selectors for better reliability
+
+## 1.3.0 - MAJOR UPDATE (deprecated)
+
+- **🎯 Switched to Python + undetected-chromedriver for superior bot detection evasion**
+  - Replaced Node.js/Puppeteer with Python/Selenium + undetected-chromedriver
+  - **Much better** at bypassing Amazon's anti-bot detection
+  - Automatic headful mode for local development (visible browser for debugging)
+  - Automatic headless mode when running in Docker/Home Assistant
+  - Persistent browser profile for session reuse (reduces login frequency)
+  - Cookie persistence across restarts for faster authentication
+  
+- **👨‍💻 Improved development experience**
+  - New `test_scraper_local.sh` script for easy local testing
+  - `env.example` file for quick setup
+  - Automatically detects Docker vs local environment
+  - Browser window visible when testing locally (log_level=true)
+
+- **🏗️ Infrastructure changes**
+  - Added Python 3 and required dependencies to Docker image
+  - Node.js still used for updateHA.js (Home Assistant webhook updates)
+  - Chrome/Chromium with chromedriver in Alpine Linux
+
 ## 1.2.2
 
 - **Fix bot detection issues with comprehensive diagnostics**

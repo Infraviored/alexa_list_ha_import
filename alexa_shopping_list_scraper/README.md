@@ -2,56 +2,21 @@
 Scrapes your Amazon Alexa Shopping List page and adds items into Home Assistant's Shopping List every 3 minutes.
 
 - One-way sync (Amazon → Home Assistant)
-- Region-aware (set the URL for your region)
-- **Two authentication methods** with automatic fallback
+- Region-aware (automatically configures for your region)
+- **Python-based with superior bot detection bypass**
+- **Email/Password + OTP authentication**
 
-## Authentication Methods
+## ⚠️ Version 2.0.0 Breaking Changes
 
-This add-on supports **two authentication methods** with intelligent fallback:
+**v2.0.0 removes cookie-based authentication entirely.** Only email/password + OTP is supported.
 
-### Method 1: Cookie-based (Recommended) 🍪
-**Pros:** Easy to set up, no 2FA code needed, more reliable  
-**Cons:** Cookies expire after ~1 year, need to be refreshed
-
-### Method 2: Email/Password + OTP (Legacy) 🔑
-**Pros:** Works when cookies expire or fail  
-**Cons:** Requires 2FA setup, more complex configuration
-
-### Auth_Method Setting
-- **`cookies`** (default): Use cookies only
-- **`email_password`**: Use email/password/OTP only
-- **`auto`**: Try cookies first, fall back to email/password if cookies fail
+If upgrading from v1.x:
+- Remove `Auth_Method`, `Cookies_JSON` settings from your configuration
+- Configure `Amazon_Login`, `Amazon_Pass`, and `Amazon_Secret` (see setup below)
 
 ---
 
-## Setup - Method 1: Cookies (Recommended)
-
-### 1) Export cookies from browser
-- Use Chrome/Edge/Brave
-- Log into your Amazon region (e.g., `www.amazon.de`)
-- Install [Cookie-Editor extension](https://cookie-editor.cgagnier.ca/)
-- Cookie-Editor → Export → JSON
-- Copy the JSON (single object `{}` or array `[]`)
-
-### 2) Configure the add-on
-- Set `Amazon_Region` to your region (e.g., `com` for US, `de` for Germany)
-- Paste JSON into `Cookies_JSON`
-- Set `Auth_Method` to `cookies`
-- Set `HA_Webhook_URL` (see webhook setup below)
-- **Leave email/password fields empty**
-- Save, then Stop and Start the add-on
-
-**Note:** The add-on automatically validates that your cookies match the selected region!
-
-### Cookie Expiration
-Your cookies will be valid for approximately **1 year**. When they expire:
-1. The add-on will log authentication failures
-2. Simply re-export fresh cookies and update `Cookies_JSON`
-3. OR set `Auth_Method` to `auto` to automatically fall back to email/password
-
----
-
-## Setup - Method 2: Email/Password/OTP
+## Setup: Email/Password + OTP Authentication
 
 ### 1) Get your OTP App Secret from Amazon
 
@@ -94,13 +59,11 @@ Your cookies will be valid for approximately **1 year**. When they expire:
 8. ✅ Save the secret key as your `Amazon_Secret`
 
 ### 2) Configure the add-on
-- Set `Auth_Method` to `email_password` (or `auto` for fallback)
 - Set `Amazon_Region` to your region code (e.g., `com`, `de`, `co.uk`, `it`)
 - Set `Amazon_Login` to your Amazon email
 - Set `Amazon_Pass` to your Amazon password
-- Set `Amazon_Secret` to your 2FA secret key (remove spaces)
+- Set `Amazon_Secret` to your 2FA secret key (with or without spaces)
 - Set `HA_Webhook_URL` (see webhook setup below)
-- **Leave `Cookies_JSON` empty** (unless using `auto` mode)
 - Save, then Stop and Start the add-on
 
 **Note:** Sign-in URL and shopping list URL are automatically built from your region!
@@ -133,86 +96,89 @@ The add-on automatically builds the correct sign-in URL based on your `Amazon_Re
 ### Required Settings
 - **`HA_Webhook_URL`**: Home Assistant webhook URL (see setup below)
 - **`Amazon_Region`**: Your Amazon region code (e.g., `com`, `de`, `co.uk`, `it`)
-
-### Authentication Settings
-- **`Auth_Method`**: `cookies` (default), `email_password`, or `auto`
-
-**For Cookie Auth:**
-- **`Cookies_JSON`**: JSON array/object exported from browser
-
-**For Email/Password Auth:**
 - **`Amazon_Login`**: Your Amazon email address
 - **`Amazon_Pass`**: Your Amazon password
-- **`Amazon_Secret`**: Your 2FA secret key
-- **`Amazon_Sign_in_URL`**: Your region's sign-in URL
+- **`Amazon_Secret`**: Your 2FA secret key (spaces are automatically removed)
 
 ### Optional Settings
 - **`Pooling_Interval`**: Seconds between checks (default: 180)
 - **`Delete_After_Download`**: Delete items from Amazon after sync (default: false)
-- **`Debug_Log`**: Enable verbose logging and screenshots (default: false)
+- **`Debug_Log`**: Enable verbose logging (default: false)
 
 ---
 
 ## How to get the Home Assistant Webhook URL
 
-1. Import this blueprint: [Blueprint](/alexa_shopping_list_scraper%2FBlueprint_Import-Alexa-Shoppinglist.yaml)  
+1. Import this blueprint from your local add-on:  
+   Path: `/addon_configs/local_alexa_shopping_list_scraper/Blueprint_Import-Alexa-Shoppinglist.yaml`  
+   
+   Or use the blueprint importer with GitHub URL:  
    [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A//github.com/Infraviored/alexa_list_ha_import/blob/main/alexa_shopping_list_scraper/Blueprint_Import-Alexa-Shoppinglist.yaml)
 
 2. Create a webhook trigger inside the blueprint
 
-3. Click on the copy symbol on the right to get the URL and save it  
-   Example: `http://homeassistant.local:8123/api/webhook/-hA_THs-Yr5dfasnnkjfsdfsa`
+3. Select which Home Assistant shopping list should be used (e.g., `todo.shopping_list`)
 
-4. Select which Home Assistant shopping list should be used
+4. Click on Save and give a name to the Automation
 
-5. Click on Save and give a name to the Automation
+5. **Important:** Configure the webhook URL in the add-on settings:
 
-**Note:** External HTTPS URLs (like `https://assistant.yourdomain.com/api/webhook/...`) are fully supported!
+### For Local/Internal Access (RECOMMENDED):
+- Click the copy symbol in the webhook trigger to get the URL
+- You'll get something like: `http://homeassistant.local:8123/api/webhook/import-alexa-shoppinglist-XxXxXxXx`
+- **Use the FULL URL** in the `HA_Webhook_URL` setting (including `http://homeassistant.local:8123`)
+- Keep `local_only: true` in your automation ✅
 
----
-
-## Recommended Setup: Auto Fallback
-
-For **maximum reliability**, use the `auto` authentication method:
-
-```yaml
-Auth_Method: auto
-Cookies_JSON: "<your cookies here>"
-Amazon_Login: "your-email@example.com"
-Amazon_Pass: "your-password"
-Amazon_Secret: "YOUR2FASECRET"
+**Example:**
+```
+HA_Webhook_URL: http://homeassistant.local:8123/api/webhook/import-alexa-shoppinglist-FPzzP2frQYE9PL7mBfQudEQf
 ```
 
-This configuration will:
-1. ✅ Try cookie authentication first (fast, reliable)
-2. ✅ Automatically fall back to email/password if cookies fail
-3. ✅ Continue working even when cookies expire
-4. ✅ Provide detailed logs showing which method succeeded
+### For External HTTPS Access:
+- Use your external Home Assistant URL: `https://assistant.yourdomain.com/api/webhook/import-alexa-shoppinglist-XxXxXxXx`
+- **IMPORTANT:** You MUST change `local_only: true` to `local_only: false` in your automation configuration
+- Otherwise the webhook will reject external requests (401 Unauthorized)
+
+**Example:**
+```
+HA_Webhook_URL: https://assistant.yourdomain.com/api/webhook/import-alexa-shoppinglist-FPzzP2frQYE9PL7mBfQudEQf
+```
+```yaml
+# In your automation YAML:
+webhook_trigger:
+  - trigger: webhook
+    allowed_methods:
+      - POST
+      - PUT
+    local_only: false  # ← Must be false for external URLs!
+    webhook_id: import-alexa-shoppinglist-FPzzP2frQYE9PL7mBfQudEQf
+```
+
+⚠️ **Do NOT just use the webhook ID alone** - this will not work. Always use the full URL!
 
 ---
 
 ## Troubleshooting
 
 ### "401 Unauthorized" error
-- If using external HTTPS webhook URL, this is now fixed in v1.1.1+
 - Verify your webhook URL is correct and the automation is enabled
+- Check that Home Assistant is accessible at the webhook URL
 
-### Cookie authentication failed
-- Cookies may have expired (valid ~1 year)
-- Re-export fresh cookies from your browser
-- Ensure cookies are from the correct Amazon region (`.de`, `.com`, etc.)
-- Try setting `Auth_Method: auto` to fall back to email/password
-
-### Email/password authentication failed
+### Authentication failed
 - Verify your email, password, and 2FA secret are correct
-- Ensure 2FA is enabled on your Amazon account
-- Check that `Amazon_Sign_in_URL` matches your region
-- Remove any spaces from the `Amazon_Secret` field
+- Ensure 2FA/2-step verification is enabled on your Amazon account
+- The `Amazon_Secret` can have spaces (they're automatically removed)
+- Check that `Amazon_Region` matches your Amazon account's region
+
+### Amazon blocks login / bot detection
+- v2.0.0 uses undetected-chromedriver which bypasses most detection
+- If still failing, enable `Debug_Log: true` to see detailed error messages
+- Each run uses a fresh browser session (stateless design)
 
 ### No items found
 - Verify the `Amazon_Region` is correctly set for your account
 - Check that you have items in your Alexa shopping list
-- Enable `Debug_Log: true` and check screenshots at `http://homeassistant.local:8888`
+- Enable `Debug_Log: true` for detailed scraping logs
 
 ---
 
@@ -270,6 +236,8 @@ action:
 
 Enable the option `Debug_Log: true`
 
-It will generate verbose logs for several calls inside the script.
-
-Once the Add-On completes a full cycle of running → error → running again, some screenshots of the process internally can be found at `http://homeassistant.local:8888`
+When debugging is enabled:
+- Detailed step-by-step logging of the authentication and scraping process
+- Error screenshots saved to `/app/error_screenshot_*.png` on failures
+- Page source dumps saved to `/app/error_page_source.html` for inspection
+- Browser runs in headful mode during local development (visible window)

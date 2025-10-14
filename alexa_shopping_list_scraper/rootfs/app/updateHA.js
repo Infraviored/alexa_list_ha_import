@@ -62,28 +62,32 @@ fs.readFile('list_of_items.json', 'utf8', (err, data) => {
   }
 
   // Function to make a webhook call for each item
-  const addItemToShoppingList = async (item) => {
+  const addItemToShoppingList = async (itemName) => {
     try {
       const response = await axios.post(webhookUrl, {
         action: "call_service",
         service: "shopping_list.add_item",
-        name: item
+        name: itemName
       }, { headers: defaultHeaders, timeout: 15000 });
       const status = response.status;
       if (status >= 200 && status < 300) {
-        console.log(`Added "${item}"`);
+        console.log(`Added "${itemName}"`);
       } else {
-        console.error(`Error adding item: ${item} HTTP ${status}`);
+        console.error(`Error adding item: ${itemName} HTTP ${status}`);
       }
     } catch (error) {
       const info = error.response ? { status: error.response.status, data: error.response.data } : { message: error.message };
-      console.error(`Error adding item: ${item}`, info);
+      console.error(`Error adding item: ${itemName}`, info);
     }
   };
 
   // Iterate over each item and call the webhook
   items.forEach(item => {
-    addItemToShoppingList(item);
+    // Handle both object format {name: "...", completed: bool} and string format
+    const itemName = typeof item === 'object' ? item.name : item;
+    if (itemName) {
+      addItemToShoppingList(itemName);
+    }
   });
 const filePath = 'list_of_items.json';
 fs.unlink(filePath, (err) => {

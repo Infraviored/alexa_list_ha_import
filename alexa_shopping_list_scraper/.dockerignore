@@ -1,0 +1,23 @@
+# Development files
+rootfs/app/.env
+rootfs/app/env.example
+rootfs/app/venv/
+rootfs/app/chrome_profile_dev/
+rootfs/app/error_screenshot_*.png
+rootfs/app/list_of_items.json
+rootfs/app/amazon_cookies_dev.json
+rootfs/app/error_page_source.html
+rootfs/app/test_output.log
+rootfs/app/__pycache__/
+
+# Git
+.git/
+.gitignore
+
+# Docs
+*.md
+
+# Node modules (will be installed in Docker)
+rootfs/app/node_modules/
+rootfs/app/package-lock.json
+

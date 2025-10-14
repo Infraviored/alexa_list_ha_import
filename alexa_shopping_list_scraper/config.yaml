@@ -1,6 +1,6 @@
 name: "Alexa Shopping List Scraper"
 description: "The project scrapes the Amazon Shopping List page and add the items to the Home Assistant Shopping List (todo list) every 3 minutes"
-version: "1.2.2"
+version: "2.0.0"
 slug: "alexa_shopping_list_scraper"
 init: false
 url: "https://github.com/Infraviored/alexa_list_ha_import"
@@ -16,8 +16,6 @@ options:
   Pooling_Interval: "180"
   Delete_After_Download: False
   Debug_Log: False
-  Auth_Method: "cookies"
-  Cookies_JSON: ""
   Amazon_Login: ""
   Amazon_Pass: ""
   Amazon_Secret: ""
@@ -27,8 +25,6 @@ schema:
   Pooling_Interval: int
   Delete_After_Download: bool
   Debug_Log: bool
-  Auth_Method: list(cookies|email_password|auto)
-  Cookies_JSON: str
   Amazon_Login: str
   Amazon_Pass: password
   Amazon_Secret: password

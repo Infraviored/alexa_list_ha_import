@@ -1,26 +1,34 @@
-ARG BUILD_FROM
+ARG BUILD_FROM=alpine:3.19
 FROM ${BUILD_FROM}
 USER root
 
-# Set environment variables to non-interactive
-#ENV DEBIAN_FRONTEND=noninteractive
-
-# Install required packages
-#RUN apt-get update && apt-get install -y sudo curl && \
-#    curl -fsSL https://deb.nodesource.com/setup_21.x | sudo -E bash - && \
-#    apt-get install -y nodejs
-RUN apk add --no-cache bash nodejs npm chromium mini_httpd
+# Install required packages - Node.js for updateHA, Python for scraping
+RUN apk add --no-cache \
+    bash \
+    nodejs \
+    npm \
+    chromium \
+    chromium-chromedriver \
+    python3 \
+    py3-pip \
+    py3-setuptools \
+    mini_httpd
 
 WORKDIR /app
-#COPY package*.json scrapeAmazon.js script.sh updateHA.js ./
-#COPY . .
+
+# Install Node.js dependencies (for updateHA.js)
 COPY rootfs/app/package.json .
 RUN npm install
 
+# Install Python dependencies (for scrapeAmazon.py)
+COPY rootfs/app/requirements.txt .
+RUN pip3 install --no-cache-dir -r requirements.txt --break-system-packages
+
+# Copy application files
 COPY rootfs/app/ ./
 
-# Install necessary npm packages
-RUN chmod a+x /app/script.sh
+# Make scripts executable
+RUN chmod a+x /app/script.sh /app/scrapeAmazon.py
 
 # Start script
 CMD ["/app/script.sh"]
