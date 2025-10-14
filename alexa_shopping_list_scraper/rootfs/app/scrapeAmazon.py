@@ -77,7 +77,8 @@ class AmazonShoppingListScraper:
         import tempfile
         self.temp_profile_dir = tempfile.mkdtemp(prefix='chrome_temp_')
         options.add_argument(f'--user-data-dir={self.temp_profile_dir}')
-        log(f"🔄 Using temporary profile (stateless): {self.temp_profile_dir}")
+        if self.debug:
+            log(f"🔄 Using temporary profile (stateless): {self.temp_profile_dir}")
         
         if is_docker:
             # Docker/Home Assistant environment - always headless
@@ -246,12 +247,16 @@ class AmazonShoppingListScraper:
             if 'alexaShoppingList' not in self.driver.current_url:
                 log("🔄 Navigating to shopping list...")
                 self.driver.get(self.shopping_list_url)
-                time.sleep(0.8)
+                time.sleep(1.5)  # Increased wait time for page load
             else:
                 log("✅ Already on shopping list page")
             
+            if self.debug:
+                log(f"   Current URL: {self.driver.current_url}")
+                log(f"   Page title: {self.driver.title}")
+            
             # Wait for list container to load
-            WebDriverWait(self.driver, 15).until(
+            WebDriverWait(self.driver, 25).until(
                 EC.presence_of_element_located((By.CLASS_NAME, 'virtual-list'))
             )
             
@@ -289,39 +294,82 @@ class AmazonShoppingListScraper:
                             'name': item_text,
                             'completed': is_completed
                         })
-                        log(f"  ✓ {item_text} {'(✅ completed)' if is_completed else ''}")
-                        
                         # If not already completed and check_after_import is enabled, store for clicking
                         if not is_completed and self.check_after_import:
                             checkboxes_to_click.append(checkbox)
                     else:
-                        log(f"  ⚠️  Found checkbox but no title")
+                        if self.debug:
+                            log(f"  ⚠️  Found checkbox but no title")
                 
                 except Exception as e:
                     if self.debug:
                         log(f"⚠️  Error parsing item: {e}")
                     continue
             
-            log(f"✅ Found {len(items)} items total")
             
             # Save to file for IPC
             with open('list_of_items.json', 'w', encoding='utf-8') as f:
                 json.dump(items, f, indent=2, ensure_ascii=False)
             
             # Mark items as completed on Amazon if enabled
-            if self.check_after_import and checkboxes_to_click:
-                log(f"✅ Marking {len(checkboxes_to_click)} items as completed on Amazon...")
-                for checkbox in checkboxes_to_click:
+            if self.check_after_import:
+                items_clicked = 0
+                max_attempts = 100  # Safety limit to prevent infinite loops
+                
+                while items_clicked < max_attempts:
                     try:
-                        # Scroll to element and click
-                        self.driver.execute_script("arguments[0].scrollIntoView(true);", checkbox)
-                        time.sleep(0.1)
-                        checkbox.click()
-                        time.sleep(0.1)
+                        # Find the first unchecked checkbox (top item)
+                        checkboxes = self.driver.find_elements(By.CSS_SELECTOR, 'input.custom-control-input[type="checkbox"]')
+                        
+                        if not checkboxes:
+                            break
+                        
+                        # Get the first checkbox (top item)
+                        first_checkbox = checkboxes[0]
+                        
+                        # Check if it's already completed
+                        if first_checkbox.is_selected():
+                            break
+                        
+                        # Find the item title for logging
+                        parent = first_checkbox
+                        item_text = "item"
+                        for _ in range(15):  # Max 15 levels up
+                            try:
+                                parent = parent.find_element(By.XPATH, '..')
+                                title_elem = parent.find_element(By.CSS_SELECTOR, 'p.item-title')
+                                item_text = title_elem.text.strip()
+                                break
+                            except:
+                                continue
+                        
+                        # Scroll to the first checkbox and click it
+                        self.driver.execute_script("arguments[0].scrollIntoView(true);", first_checkbox)
+                        time.sleep(0.2)
+                        first_checkbox.click()
+                        time.sleep(0.3)  # Wait for the item to be removed from the list
+                        
+                        items_clicked += 1
+                        log(f"✅ Checked item #{items_clicked}: {item_text}")
+                        
+                        # Check if virtual list is now empty (height: 0px)
+                        try:
+                            virtual_list = self.driver.find_element(By.CLASS_NAME, 'virtual-list')
+                            style = virtual_list.get_attribute('style')
+                            if 'height: 0px' in style:
+                                break
+                        except Exception:
+                            pass  # Continue if we can't check the style
+                        
                     except Exception as e:
                         if self.debug:
                             log(f"⚠️  Failed to click checkbox: {e}")
-                log(f"✅ Marked {len(checkboxes_to_click)} items as completed")
+                        break
+                
+                if items_clicked >= max_attempts:
+                    log(f"⚠️  Reached maximum attempts ({max_attempts}) - stopping")
+                else:
+                    log(f"✅ Successfully marked {items_clicked} items as completed")
             
             return True
             
@@ -330,6 +378,15 @@ class AmazonShoppingListScraper:
             if self.debug:
                 import traceback
                 log(f"   Full traceback:\n{traceback.format_exc()}")
+                log(f"   Current URL: {self.driver.current_url}")
+                log(f"   Page title: {self.driver.title}")
+                try:
+                    # Save screenshot for debugging
+                    screenshot_path = f"error_screenshot_{int(time.time())}.png"
+                    self.driver.save_screenshot(screenshot_path)
+                    log(f"   Screenshot saved: {screenshot_path}")
+                except Exception as ss_err:
+                    log(f"   Could not save screenshot: {ss_err}")
             return False
     
     def run(self):

@@ -5,6 +5,7 @@ alexa_shopping_list_scraper/rootfs/app/chrome_profile_dev/
 alexa_shopping_list_scraper/rootfs/app/venv/
 alexa_shopping_list_scraper/rootfs/app/list_of_items.json
 alexa_shopping_list_scraper/rootfs/app/amazon_cookies_dev.json
+alexa_shopping_list_scraper/rootfs/app/error_screenshot_*.png
 __pycache__/
 *.pyc
 *.pyo

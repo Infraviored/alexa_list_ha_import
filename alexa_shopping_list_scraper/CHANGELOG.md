@@ -1,3 +1,30 @@
+## 2.0.2 - FIX CHECKBOX CLICKING LOGIC
+
+**Bug fixes:**
+- **Fixed incomplete item completion** - Now properly clicks ALL items until the shopping list is completely empty
+- **Improved checkbox clicking logic** - Repeatedly clicks the first (top) checkbox until all items are marked as completed
+- **Added virtual list empty detection** - Stops clicking when the virtual list height becomes 0px
+- **Enhanced safety mechanisms** - Added maximum attempt limit and better error handling to prevent infinite loops
+
+**Technical improvements:**
+- Replaced single-pass checkbox clicking with iterative approach
+- Added proper DOM update waits between clicks
+- Improved logging to show progress of item completion
+- Better detection of when all items are completed
+- **Cleaner, more concise logging** - Removed verbose debug messages, merged item listing and completion logs, added emojis to update messages
+
+## 2.0.1 - CLEAN UP LOGGING AND MARK ITEMS AS COMPLETED
+
+**Bug fixes:**
+- Fixed duplicate [scrape] prefixes in logs
+- Removed verbose 'exited with code 0' messages
+- Removed JSON file mention from logs (kept for IPC)
+- Removed debug screenshot/page source saving
+
+**Feature improvements:**
+- Renamed Delete_After_Download to Check_after_import
+- Added functionality to mark items as completed on Amazon after import
+
 ## 2.0.0 - PYTHON-BASED REWRITE 🐍
 
 **BREAKING CHANGES:**
@@ -18,27 +45,6 @@
 - Temporary Chrome profiles created and cleaned up each run
 - Optimized login flow to avoid redundant page loads after OTP submission
 - Improved scraping selectors for better reliability
-
-## 1.3.0 - MAJOR UPDATE (deprecated)
-
-- **🎯 Switched to Python + undetected-chromedriver for superior bot detection evasion**
-  - Replaced Node.js/Puppeteer with Python/Selenium + undetected-chromedriver
-  - **Much better** at bypassing Amazon's anti-bot detection
-  - Automatic headful mode for local development (visible browser for debugging)
-  - Automatic headless mode when running in Docker/Home Assistant
-  - Persistent browser profile for session reuse (reduces login frequency)
-  - Cookie persistence across restarts for faster authentication
-  
-- **👨‍💻 Improved development experience**
-  - New `test_scraper_local.sh` script for easy local testing
-  - `env.example` file for quick setup
-  - Automatically detects Docker vs local environment
-  - Browser window visible when testing locally (log_level=true)
-
-- **🏗️ Infrastructure changes**
-  - Added Python 3 and required dependencies to Docker image
-  - Node.js still used for updateHA.js (Home Assistant webhook updates)
-  - Chrome/Chromium with chromedriver in Alpine Linux
 
 ## 1.2.2
 

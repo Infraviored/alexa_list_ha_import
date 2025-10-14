@@ -71,7 +71,7 @@ fs.readFile('list_of_items.json', 'utf8', (err, data) => {
       }, { headers: defaultHeaders, timeout: 15000 });
       const status = response.status;
       if (status >= 200 && status < 300) {
-        console.log(`Added "${itemName}"`);
+        console.log(`[update] ✅ Added "${itemName}"`);
       } else {
         console.error(`Error adding item: ${itemName} HTTP ${status}`);
       }
