@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="logo.png" alt="Alexa Shopping List Scraper" width="400" height="400">
+</div>
+
 # Alexa Shopping List Scraper
 Scrapes your Amazon Alexa Shopping List page and adds items into Home Assistant's Shopping List every 3 minutes.
 

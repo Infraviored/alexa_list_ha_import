@@ -10,7 +10,12 @@ This is a personal collection of Home Assistant Add-ons. This repository is a fo
 
 This repository currently contains the following add-on:
 
-- **<a href="https://github.com/Infraviored/alexa_list_ha_import/tree/main/alexa_shopping_list_scraper">Alexa Shopping List Scraper</a>**
+<table style="border: none; border-collapse: collapse;">
+  <tr>
+    <td style="border: none; padding-right: 15px;"><img src="alexa_shopping_list_scraper/logo.png" alt="Alexa Shopping List Scraper Logo" width="128" height="128"></td>
+    <td style="border: none; vertical-align: top;"><strong><a href="https://github.com/Infraviored/alexa_list_ha_import/tree/main/alexa_shopping_list_scraper/README.md">Alexa Shopping List Scraper</a></strong></td>
+  </tr>
+</table>
 
   ![Supports aarch64 Architecture][aarch64-shield]
   ![Supports amd64 Architecture][amd64-shield]
