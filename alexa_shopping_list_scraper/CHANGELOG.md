@@ -1,3 +1,16 @@
+## 2.0.3 - BOTTOM-TO-TOP CHECKBOX CLICKING FIX
+
+**Bug fixes:**
+- **Fixed stale element reference errors** - Now clicks checkboxes from bottom to top, avoiding DOM shifts that invalidate element references
+- **JavaScript-based clicking** - Replaced Selenium element clicking with pure JavaScript for more reliable interactions
+- **Improved timing** - Better scroll animation wait times and DOM update delays
+
+**Technical improvements:**
+- Changed from top-to-bottom to bottom-to-top iteration strategy
+- Uses `document.querySelector()` to find elements fresh each iteration
+- Smooth scroll animations with proper wait times
+- Better detection of completion state
+
 ## 2.0.2 - FIX CHECKBOX CLICKING LOGIC
 
 **Bug fixes:**

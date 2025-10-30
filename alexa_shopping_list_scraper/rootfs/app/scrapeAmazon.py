@@ -260,52 +260,51 @@ class AmazonShoppingListScraper:
                 EC.presence_of_element_located((By.CLASS_NAME, 'virtual-list'))
             )
             
+            # CRITICAL: Scroll through the ENTIRE virtual list to load all items into DOM
+            # Virtual scrolling only renders visible items, so we need to scroll to ensure all items are in the DOM
+            log("📜 Scrolling to load all items...")
+            self.driver.execute_script("""
+                let virtualList = document.querySelector('.virtual-list');
+                if (virtualList) {
+                    // Scroll to the very bottom to load all items
+                    virtualList.scrollTop = virtualList.scrollHeight;
+                }
+            """)
+            time.sleep(1)  # Wait for all items to render after scrolling
+            
+            # Scroll back to top to start fresh
+            self.driver.execute_script("""
+                let virtualList = document.querySelector('.virtual-list');
+                if (virtualList) {
+                    virtualList.scrollTop = 0;
+                }
+            """)
+            time.sleep(0.5)
+            
             items = []
-            checkboxes_to_click = []  # Store checkboxes to mark as complete
             
-            # Find all item containers (each item is in a div with class containing pattern)
-            # Look for all checkboxes (one per item)
-            checkboxes = self.driver.find_elements(By.CSS_SELECTOR, 'input.custom-control-input[type="checkbox"]')
+            # Use JavaScript to extract ALL items at once (no stale reference issues)
+            items_data = self.driver.execute_script("""
+                let items = [];
+                let checkboxes = document.querySelectorAll('input.custom-control-input[type="checkbox"]');
+                checkboxes.forEach(checkbox => {
+                    let parent = checkbox.closest('.sc-bXCLTC');
+                    if (parent) {
+                        let titleElem = parent.querySelector('p.item-title');
+                        if (titleElem) {
+                            items.push({
+                                'name': titleElem.textContent.trim(),
+                                'completed': checkbox.checked
+                            });
+                        }
+                    }
+                });
+                return items;
+            """)
             
-            log(f"🔍 Found {len(checkboxes)} items")
+            items = items_data if items_data else []
             
-            for checkbox in checkboxes:
-                try:
-                    # Get checkbox state
-                    is_completed = checkbox.is_selected()
-                    
-                    # Find the item title in the same parent container
-                    # Navigate to parent and find the p.item-title
-                    parent = checkbox
-                    item_text = None
-                    
-                    # Go up to find the row container, then find title
-                    for _ in range(15):  # Max 15 levels up
-                        try:
-                            parent = parent.find_element(By.XPATH, '..')
-                            title_elem = parent.find_element(By.CSS_SELECTOR, 'p.item-title')
-                            item_text = title_elem.text.strip()
-                            break
-                        except:
-                            continue
-                    
-                    if item_text:
-                        items.append({
-                            'name': item_text,
-                            'completed': is_completed
-                        })
-                        # If not already completed and check_after_import is enabled, store for clicking
-                        if not is_completed and self.check_after_import:
-                            checkboxes_to_click.append(checkbox)
-                    else:
-                        if self.debug:
-                            log(f"  ⚠️  Found checkbox but no title")
-                
-                except Exception as e:
-                    if self.debug:
-                        log(f"⚠️  Error parsing item: {e}")
-                    continue
-            
+            log(f"🔍 Found {len(items)} items")
             
             # Save to file for IPC
             with open('list_of_items.json', 'w', encoding='utf-8') as f:
@@ -318,58 +317,85 @@ class AmazonShoppingListScraper:
                 
                 while items_clicked < max_attempts:
                     try:
-                        # Find the first unchecked checkbox (top item)
-                        checkboxes = self.driver.find_elements(By.CSS_SELECTOR, 'input.custom-control-input[type="checkbox"]')
+                        # Get all unchecked checkboxes
+                        checkboxes = self.driver.find_elements(By.CSS_SELECTOR, 'input.custom-control-input[type="checkbox"]:not(:checked)')
                         
                         if not checkboxes:
+                            log("✅ All items checked!")
                             break
                         
-                        # Get the first checkbox (top item)
-                        first_checkbox = checkboxes[0]
+                        # Get the LAST checkbox (bottom-most unchecked item) to avoid stale references
+                        # Working from bottom to top prevents DOM shifts from affecting elements we haven't clicked yet
+                        last_checkbox = checkboxes[-1]
                         
-                        # Check if it's already completed
-                        if first_checkbox.is_selected():
-                            break
+                        # Use JavaScript to extract the item title BEFORE scrolling/clicking
+                        # This avoids stale element references that occur after DOM re-renders
+                        item_text = self.driver.execute_script("""
+                            let checkbox = document.querySelector('input.custom-control-input[type="checkbox"]:not(:checked):last-of-type');
+                            if (checkbox) {
+                                let parent = checkbox.closest('.sc-bXCLTC');
+                                if (parent) {
+                                    let titleElem = parent.querySelector('p.item-title');
+                                    if (titleElem) {
+                                        return titleElem.textContent.trim();
+                                    }
+                                }
+                            }
+                            return 'item';
+                        """)
                         
-                        # Find the item title for logging
-                        parent = first_checkbox
-                        item_text = "item"
-                        for _ in range(15):  # Max 15 levels up
-                            try:
-                                parent = parent.find_element(By.XPATH, '..')
-                                title_elem = parent.find_element(By.CSS_SELECTOR, 'p.item-title')
-                                item_text = title_elem.text.strip()
-                                break
-                            except:
-                                continue
+                        # Use JavaScript to avoid stale element issues:
+                        # - Scroll into view
+                        # - Wait a bit for animations
+                        # - Click the checkbox
+                        self.driver.execute_script("""
+                            let checkbox = document.querySelector('input.custom-control-input[type="checkbox"]:not(:checked):last-of-type');
+                            if (checkbox) {
+                                checkbox.scrollIntoView({behavior: 'smooth', block: 'center'});
+                            }
+                        """)
+                        time.sleep(0.5)  # Wait for scroll animation to complete
                         
-                        # Scroll to the first checkbox and click it
-                        self.driver.execute_script("arguments[0].scrollIntoView(true);", first_checkbox)
-                        time.sleep(0.2)
-                        first_checkbox.click()
-                        time.sleep(0.3)  # Wait for the item to be removed from the list
+                        # Now click the checkbox using JavaScript (more reliable than Selenium click)
+                        self.driver.execute_script("""
+                            let checkbox = document.querySelector('input.custom-control-input[type="checkbox"]:not(:checked):last-of-type');
+                            if (checkbox) {
+                                checkbox.click();
+                            }
+                        """)
+                        
+                        time.sleep(0.5)  # Wait for the item to disappear/be marked as completed
                         
                         items_clicked += 1
                         log(f"✅ Checked item #{items_clicked}: {item_text}")
                         
-                        # Check if virtual list is now empty (height: 0px)
+                        # Check if all items are now completed
                         try:
-                            virtual_list = self.driver.find_element(By.CLASS_NAME, 'virtual-list')
-                            style = virtual_list.get_attribute('style')
-                            if 'height: 0px' in style:
+                            unchecked_count = len(self.driver.find_elements(By.CSS_SELECTOR, 'input.custom-control-input[type="checkbox"]:not(:checked)'))
+                            if unchecked_count == 0:
+                                log("✅ All items are now checked!")
                                 break
                         except Exception:
-                            pass  # Continue if we can't check the style
+                            pass  # Continue if we can't check
                         
                     except Exception as e:
+                        log(f"⚠️  Failed to click checkbox: {e}")
                         if self.debug:
-                            log(f"⚠️  Failed to click checkbox: {e}")
+                            import traceback
+                            log(f"   Full traceback:\n{traceback.format_exc()}")
                         break
                 
                 if items_clicked >= max_attempts:
                     log(f"⚠️  Reached maximum attempts ({max_attempts}) - stopping")
                 else:
                     log(f"✅ Successfully marked {items_clicked} items as completed")
+                    
+                    # Verify counts match
+                    unchecked_count = len([item for item in items if not item['completed']])
+                    if items_clicked == unchecked_count:
+                        log(f"✅ VERIFIED: Clicked {items_clicked} items = Initial unchecked items ({unchecked_count})")
+                    else:
+                        log(f"⚠️  Count mismatch: Clicked {items_clicked} but found {unchecked_count} unchecked items initially")
             
             return True
             
