@@ -17,6 +17,10 @@ This repository currently contains the following add-on:
   </tr>
 </table>
 
+[![Watch Demo Video](alexa_shopping_list_scraper/thumbnail.png)](https://github.com/user-attachments/assets/4309537c-8628-44b2-b617-1557783dea34)
+
+---
+
   ![Supports aarch64 Architecture][aarch64-shield]
   ![Supports amd64 Architecture][amd64-shield]
   ![Supports armhf Architecture][armhf-shield]

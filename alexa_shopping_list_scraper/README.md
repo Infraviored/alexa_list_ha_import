@@ -10,6 +10,12 @@ Scrapes your Amazon Alexa Shopping List page and adds items into Home Assistant'
 - **Python-based with superior bot detection bypass**
 - **Email/Password + OTP authentication**
 
+## Watch in action
+
+[![Watch Demo Video](thumbnail.png)](https://github.com/user-attachments/assets/4309537c-8628-44b2-b617-1557783dea34)
+
+---
+
 ## ⚠️ Version 2.0.0 Breaking Changes
 
 **v2.0.0 removes cookie-based authentication entirely.** Only email/password + OTP is supported.
