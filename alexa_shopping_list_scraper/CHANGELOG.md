@@ -1,3 +1,6 @@
+## 2.0.4 - FIX UNIFIED LOGIN PAGE
+- **Fixed login failure on Unified Sign-In layout** - The scraper now recognizes both `ap_email` and `ap_email_login` input fields, fixing authentication issues for new/unrecognized device flows.
+
 ## 2.0.3 - BOTTOM-TO-TOP CHECKBOX CLICKING FIX
 
 **Bug fixes:**
