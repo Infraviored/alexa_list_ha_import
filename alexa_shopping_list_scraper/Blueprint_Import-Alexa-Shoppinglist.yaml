@@ -23,7 +23,9 @@ variables:
 trigger: !input webhook_trigger
 
 action:
-  - data: {}
+  - data:
+      status:
+        - needs_action
     response_variable: list
     entity_id: !input shopping_list
     action: todo.get_items

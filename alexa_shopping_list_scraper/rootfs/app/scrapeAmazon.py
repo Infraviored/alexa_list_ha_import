@@ -19,6 +19,44 @@ from dotenv import load_dotenv
 # Load .env file
 load_dotenv()
 
+def get_config():
+    """Load configuration from /data/options.json (HA) or environment variables (Dev)"""
+    config = {}
+    options_path = "/data/options.json"
+    
+    if os.path.exists(options_path):
+        try:
+            with open(options_path, "r") as f:
+                config = json.load(f)
+        except Exception as e:
+            print(f"Error loading {options_path}: {e}")
+
+    # Helper to get value from config or env
+    def get_val(key, default=None):
+        # HA options are usually ExactMatch, but env might be UPPERCASE
+        val = config.get(key)
+        if val is None:
+            val = os.environ.get(key)
+        if val is None:
+            val = os.environ.get(key.upper())
+        return val if val is not None else default
+
+    # Build normalized config object
+    return {
+        "region": get_val("Amazon_Region", "de"),
+        "email": get_val("Amazon_Login"),
+        "password": get_val("Amazon_Pass"),
+        "otp_secret": get_val("Amazon_Secret"),
+        "debug": str(get_val("Debug_Log", "false")).lower() == "true",
+        "check_after_import": str(get_val("Check_after_import", "false")).lower() == "true",
+        "headful": str(get_val("HEAD", "false")).lower() == "true",
+        "force_headless": str(get_val("FORCE_HEADLESS", "false")).lower() == "true",
+        "assoc_handle": get_val("Amazon_Assoc_Handle"),
+        "language": get_val("Amazon_Language"),
+    }
+
+from marketplace_auth import get_marketplace_auth
+
 def log(message, prefix=""):
     """Print with timestamp"""
     print(f"{message}", flush=True)
@@ -29,38 +67,35 @@ def get_env(key, default=None):
 
 class AmazonShoppingListScraper:
     def __init__(self):
-        self.region = get_env('Amazon_Region', 'de')
-        self.email = get_env('Amazon_Login')
-        self.password = get_env('Amazon_Pass')
-        self.otp_secret = get_env('Amazon_Secret')
-        # Support both names for consistency
-        debug_env = get_env('Debug_Log') or get_env('log_level')
-        self.debug = str(debug_env).lower() == 'true'
+        config = get_config()
+        self.region = config["region"]
+        self.email = config["email"]
+        self.password = config["password"]
+        self.otp_secret = config["otp_secret"]
+        self.debug = config["debug"]
         
         # VISIBILITY: Default Headless. Use HEAD=True for headful development.
-        self.headful = get_env('HEAD', '').lower() == 'true'
-        self.force_headless = get_env('FORCE_HEADLESS', '').lower() == 'true'
-        self.check_after_import = get_env('CHECK_AFTER_IMPORT', '').lower() == 'true'
+        self.headful = config["headful"]
+        self.force_headless = config["force_headless"]
+        self.check_after_import = config["check_after_import"]
+        
+        # MARKETPLACE-SPECIFIC AUTH
+        auth = get_marketplace_auth(
+            region=self.region,
+            assoc_override=config["assoc_handle"],
+            lang_override=config["language"]
+        )
+        
+        self.assoc_handle = auth["assoc_handle"]
+        self.language = auth.get("language")
+        self.signin_url = auth["signin_url"]
         
         self.base_url = f"https://www.amazon.{self.region}"
-        self.signin_url = self._build_signin_url()
         self.shopping_list_url = f"{self.base_url}/alexaquantum/sp/alexaShoppingList?ref_=list_d_wl_ys_list_1"
         
         self.driver = None
-        self.temp_profile_dir = None  # Track temp dir for cleanup
+        self.temp_profile_dir = None
         
-    def _build_signin_url(self):
-        """Build Amazon sign-in URL"""
-        params = (
-            "openid.pape.max_auth_age=3600"
-            f"&openid.return_to=https%3A%2F%2Fwww.amazon.{self.region}%2Falexaquantum%2Fsp%2FalexaShoppingList%3Fref_%3Dlist_d_wl_ys_list_1"
-            "&openid.identity=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select"
-            f"&openid.assoc_handle=amzn_alexa_quantum_{self.region}"
-            "&openid.mode=checkid_setup"
-            "&openid.claimed_id=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select"
-            "&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0"
-        )
-        return f"{self.base_url}/ap/signin?{params}"
     
     def _install_webauthn_killer(self):
         """
@@ -138,7 +173,10 @@ class AmazonShoppingListScraper:
                 "autofill.credit_card_enabled": False
             })
             options.add_argument('--window-size=1920,1080')
-            options.add_argument('--lang=de-DE')
+            
+            # Use detected language or fallback to region-based
+            browser_lang = self.language or ("de-DE" if self.region == "de" else "en-US")
+            options.add_argument(f'--lang={browser_lang}')
             
             # Determine if running in Docker or local dev environment
             is_docker = os.path.exists('/.dockerenv') or os.path.exists('/data')
@@ -480,7 +518,9 @@ class AmazonShoppingListScraper:
     def handle_otp(self):
         """Handle OTP input and submission"""
         try:
-            totp = pyotp.TOTP(self.otp_secret)
+            # Clean spaces from OTP secret as suggested by community feedback
+            clean_secret = self.otp_secret.replace(" ", "")
+            totp = pyotp.TOTP(clean_secret)
             otp_code = totp.now()
             log(f"🔢 Submitting OTP...")
             
@@ -724,14 +764,8 @@ class AmazonShoppingListScraper:
             if self.driver:
                 self.driver.quit()
             
-            # Cleanup temporary profile directory (stateless)
-            if self.temp_profile_dir and os.path.exists(self.temp_profile_dir):
-                try:
-                    import shutil
-                    shutil.rmtree(self.temp_profile_dir)
-                    log(f"🧹 Cleaned up temporary profile: {self.temp_profile_dir}")
-                except Exception:
-                    pass  # Silently ignore cleanup errors
+            # STATELESS is gone: We now maintain session persistence.
+            # No automatic cleanup of temp_profile_dir to keep cookies alive.
 
 if __name__ == '__main__':
     scraper = AmazonShoppingListScraper()

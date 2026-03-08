@@ -9,3 +9,5 @@ alexa_shopping_list_scraper/rootfs/app/error_screenshot_*.png
 __pycache__/
 *.pyc
 *.pyo
+alexa_shopping_list_scraper/rootfs/app/amazon_session/
+alexa_shopping_list_scraper/step_process

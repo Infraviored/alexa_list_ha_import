@@ -1,3 +1,11 @@
+## 2.2.0 - DYNAMIC MARKETPLACE AUTH & RELIABILITY
+- **Dynamic Marketplace Discovery** - Implemented a redirection-based discovery system that automatically finds the correct `assoc_handle` and `language` for any Amazon marketplace.
+- **Native Home Assistant Integration** - Added direct support for `/data/options.json`, ensuring settings from the Home Assistant UI are processed correctly.
+- **Improved Session Persistence** - Fixed a bug that periodically cleared the browser profile; login states and cookies now persist correctly in `amazon_session`.
+- **Flexible Browser Context** - The scraper now dynamically sets the browser's internal language and locale to match the target marketplace.
+- **Unified Parameter Naming** - Aligned internal code with Home Assistant's `Check_after_import` option naming.
+- **Blueprint Deduplication Fix** - Updated the blueprint to only check against active (`needs_action`) items, allowing previously completed items to be re-added.
+
 ## 2.1.0 - REVOLUTIONARY AUTHENTICATION & PERSISTENCE
 - **WebAuthn / Passkey Mitigation** - Implemented a CDP-based "WebAuthn Killer" to force Amazon into the standard password/OTP flow, preventing native browser popups from blocking automation.
 - **Persistent Session Support** - The scraper now maintains a local `amazon_session` profile, allowing it to stay logged in and bypass challenges on subsequent runs.
