@@ -149,8 +149,9 @@ class AmazonShoppingListScraper:
             # Enter email
             log("📧 Entering email...")
             try:
+                # Accept both standard (ap_email) and unified (ap_email_login) IDs
                 email_field = WebDriverWait(self.driver, 10).until(
-                    EC.presence_of_element_located((By.ID, 'ap_email'))
+                    EC.presence_of_element_located((By.CSS_SELECTOR, '#ap_email, #ap_email_login'))
                 )
                 email_field.clear()
                 email_field.send_keys(self.email)
