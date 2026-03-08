@@ -1,3 +1,17 @@
+## 2.1.0 - REVOLUTIONARY AUTHENTICATION & PERSISTENCE
+- **WebAuthn / Passkey Mitigation** - Implemented a CDP-based "WebAuthn Killer" to force Amazon into the standard password/OTP flow, preventing native browser popups from blocking automation.
+- **Persistent Session Support** - The scraper now maintains a local `amazon_session` profile, allowing it to stay logged in and bypass challenges on subsequent runs.
+- **Active State Maintenance** - Automatically detects when Amazon clears forms during challenges and re-fills credentials to prevent "silent reset" loops.
+- **Cynical Success Verification** - Success is now determined by actual page elements (the shopping list itself) rather than deceptive URL parameters.
+- **Refined Visibility Control** - Defaults to a clean HEADLESS mode for production. Use `HEAD=True` environment variable for visible development/debugging.
+- **Improved Diagnostics** - Enhanced text-only logging with detailed page dumps on failure (Visible IDs, Names, and CAPTCHA detection).
+- **Silent Operation** - Removed internal initialization logs to keep the CLI output clean and focused.
+
+## 2.0.5 - ROBUST AUTHENTICATION CHALLENGES
+- **Improved Unified Sign-In (/ax/claim) support** - Better detection of the multi-step login process often used for new or unrecognized devices.
+- **Enhanced OTP Detection** - The scraper now explicitly checks for the presence of the OTP input field, ensuring 2FA is triggered even when the URL structure varies.
+- **Better Login Verification** - More reliable detection of whether the authentication process was actually completed or if a security challenge is still active.
+
 ## 2.0.4 - FIX UNIFIED LOGIN PAGE
 - **Fixed login failure on Unified Sign-In layout** - The scraper now recognizes both `ap_email` and `ap_email_login` input fields, fixing authentication issues for new/unrecognized device flows.
 

@@ -33,7 +33,12 @@ class AmazonShoppingListScraper:
         self.email = get_env('Amazon_Login')
         self.password = get_env('Amazon_Pass')
         self.otp_secret = get_env('Amazon_Secret')
-        self.debug = get_env('log_level', '').lower() == 'true'
+        # Support both names for consistency
+        debug_env = get_env('Debug_Log') or get_env('log_level')
+        self.debug = str(debug_env).lower() == 'true'
+        
+        # VISIBILITY: Default Headless. Use HEAD=True for headful development.
+        self.headful = get_env('HEAD', '').lower() == 'true'
         self.force_headless = get_env('FORCE_HEADLESS', '').lower() == 'true'
         self.check_after_import = get_env('CHECK_AFTER_IMPORT', '').lower() == 'true'
         
@@ -57,90 +62,190 @@ class AmazonShoppingListScraper:
         )
         return f"{self.base_url}/ap/signin?{params}"
     
+    def _install_webauthn_killer(self):
+        """
+        Block WebAuthn in the page context before JavaScript runs.
+        This prevents the native passkey/QR popup.
+        """
+        try:
+            self.driver.execute_cdp_cmd(
+                "Page.addScriptToEvaluateOnNewDocument",
+                {
+                    "source": r"""
+        (() => {
+          const fail = async () => {
+            throw new DOMException('WebAuthn disabled for automation', 'NotSupportedError');
+          };
+
+          try {
+            Object.defineProperty(window, 'PublicKeyCredential', {
+              get: () => undefined,
+              configurable: false
+            });
+          } catch (e) {}
+
+          try {
+            if (navigator.credentials) {
+              const origGet = navigator.credentials.get
+                ? navigator.credentials.get.bind(navigator.credentials)
+                : null;
+              const origCreate = navigator.credentials.create
+                ? navigator.credentials.create.bind(navigator.credentials)
+                : null;
+
+              if (origGet) {
+                navigator.credentials.get = async function(options) {
+                  if (options && options.publicKey) return fail();
+                  return origGet(options);
+                };
+              }
+
+              if (origCreate) {
+                navigator.credentials.create = async function(options) {
+                  if (options && options.publicKey) return fail();
+                  return origCreate(options);
+                };
+              }
+            }
+          } catch (e) {}
+        })();
+        """
+                },
+            )
+        except:
+            pass
+
     def init_driver(self):
         """Initialize undetected Chrome driver"""
-        log("Initializing undetected Chrome driver...")
-        
-        options = uc.ChromeOptions()
-        options.add_argument('--no-sandbox')
-        options.add_argument('--disable-dev-shm-usage')
-        options.add_argument('--window-size=1920,1080')
-        options.add_argument('--lang=de-DE')
-        options.add_argument('--disable-software-rasterizer')
-        options.add_argument('--disable-extensions')
-        
-        # Determine if running in Docker or local dev environment
-        is_docker = os.path.exists('/.dockerenv') or os.path.exists('/data')
-        
-        # STATELESS: Use temp directory that gets cleaned up
-        # No persistent user-data-dir = fresh session every run
-        import tempfile
-        self.temp_profile_dir = tempfile.mkdtemp(prefix='chrome_temp_')
-        options.add_argument(f'--user-data-dir={self.temp_profile_dir}')
-        if self.debug:
-            log(f"🔄 Using temporary profile (stateless): {self.temp_profile_dir}")
-        
-        if is_docker:
-            # Docker/Home Assistant environment - always headless
-            options.add_argument('--disable-gpu')
-            options.add_argument('--headless=new')
-            # Alpine Linux paths
-            options.binary_location = '/usr/bin/chromium-browser'
-            driver_path = '/usr/bin/chromedriver'
-        else:
-            # Local development environment
-            # Headful for debugging when log_level=true
-            if self.debug and not self.force_headless:
-                log("🖥️  Running in HEADFUL mode (you'll see the browser)")
-            else:
-                log("🔇 Running in HEADLESS mode")
-                options.add_argument('--headless=new')
-            driver_path = None  # Let undetected-chromedriver find it
-        
         try:
-            # undetected_chromedriver automatically handles detection bypasses
-            # Let it auto-download the correct chromedriver version for our Chrome
-            if is_docker:
-                # In Docker, use the system chromedriver
-                self.driver = uc.Chrome(
-                    options=options,
-                    version_main=None,
-                    use_subprocess=True,
-                    driver_executable_path=driver_path
-                )
-            else:
-                # In local dev, let undetected-chromedriver handle everything
-                self.driver = uc.Chrome(
-                    options=options,
-                    version_main=140,  # Force Chrome 140 driver
-                    use_subprocess=False  # Don't use subprocess for better compatibility
-                )
+            if self.debug:
+                log("Initializing undetected Chrome driver...")
             
+            options = uc.ChromeOptions()
+            options.add_argument('--no-sandbox')
+            options.add_argument('--disable-dev-shm-usage')
+            
+            # Disable native credential prompts via flags (though CDP script is more reliable)
+            options.add_argument('--disable-features=WebAuthentication,WebAuthenticationCustomUI,Bluetooth,FileSelectionDialogs')
+            options.add_argument('--disable-blink-features=WebAuthentication')
+            
+            # Additional preferences to keep the browser quiet
+            options.add_experimental_option("prefs", {
+                "credentials_enable_service": False,
+                "profile.password_manager_enabled": False,
+                "profile.default_content_setting_values.notifications": 2,
+                "autofill.profile_enabled": False,
+                "autofill.credit_card_enabled": False
+            })
+            options.add_argument('--window-size=1920,1080')
+            options.add_argument('--lang=de-DE')
+            
+            # Determine if running in Docker or local dev environment
+            is_docker = os.path.exists('/.dockerenv') or os.path.exists('/data')
+            
+            # PERSISTENCE: Use a local directory to save cookies and session state
+            self.temp_profile_dir = os.path.join(os.getcwd(), 'amazon_session')
+            if not os.path.exists(self.temp_profile_dir):
+                os.makedirs(self.temp_profile_dir)
+                
+            options.add_argument(f'--user-data-dir={self.temp_profile_dir}')
+            log(f"Using persistent profile: {self.temp_profile_dir}")
+            
+            if is_docker:
+                # Docker/Home Assistant environment - always headless
+                options.add_argument('--headless')
+                driver_path = '/usr/bin/chromedriver'
+                self.driver = uc.Chrome(options=options, driver_executable_path=driver_path)
+            else:
+                # Local development environment
+                options.binary_location = '/usr/bin/google-chrome-beta'
+                
+                # HEAD=True enables visible browser (headful)
+                # Headless is the default for production/normal usage
+                if self.headful and not self.force_headless:
+                    log("🗣️ Running in HEADFUL mode (browser window visible)")
+                else:
+                    # Silent in headless
+                    options.add_argument('--headless=new')
+                
+                # In local dev, let undetected-chromedriver handle everything
+                self.driver = uc.Chrome(options=options, use_subprocess=False)
+                
+            # Install the WebAuthn killer immediately after driver creation
+            self._install_webauthn_killer()
             self.driver.set_page_load_timeout(60)
+            
             log("✅ Driver initialized successfully")
             if not is_docker and self.debug:
                 log("💡 Browser window is visible - watch the magic happen!")
             return True
         except Exception as e:
-            log(f"❌ Failed to initialize driver: {e}")
+            log(f"Failed to initialize driver: {e}")
             if not is_docker:
-                log("💡 Make sure Chrome/Chromium is installed on your system")
-                log("💡 undetected-chromedriver will auto-download the correct driver version")
+                log("Make sure Chrome/Chromium is installed on your system")
+                log("undetected-chromedriver will auto-download the correct driver version")
             return False
     
+    def log_page_diagnostics(self):
+        """Log detailed page diagnostics on failure"""
+        if not self.debug:
+            return
+        try:
+            log("🔍 Diagnostic Dump:")
+            log(f"   URL: {self.driver.current_url}")
+            log(f"   Title: {self.driver.title}")
+            # Get a list of all IDs for buttons and inputs
+            diag_js = """
+            let diag = {
+                ids: [], 
+                names: [],
+                captcha: !!document.querySelector('img[src*="captcha"], #auth-captcha-image')
+            };
+            document.querySelectorAll('input, button, a').forEach(el => {
+                if (el.id) diag.ids.push(el.id);
+                if (el.name) diag.names.push(el.name);
+            });
+            return diag;
+            """
+            diag = self.driver.execute_script(diag_js)
+            if diag['captcha']:
+                log("🚨 CAPTCHA DETECTED! Amazon is blocking the automated login.")
+            log(f"   Visible IDs: {', '.join(diag['ids'][:25])}")
+            log(f"   Visible Names: {', '.join(diag['names'][:25])}")
+        except Exception as e:
+            log(f"   (Could not retrieve diagnostics: {e})")
+
     def login_with_email_password(self):
         """Login using email and password"""
-        log("🔐 Attempting email/password authentication...")
+        log("🔐 Checking authentication state...")
+        
+        # 1. First, check if we are already logged in via persistent cookies
+        try:
+            log("📍 Navigating to shopping list to check session...")
+            self.driver.get(self.shopping_list_url)
+            time.sleep(5)  # Increased wait time for session check (esp. for headless)
+            
+            # Check for the list element
+            try:
+                self.driver.find_element(By.CLASS_NAME, 'virtual-list')
+                log("✅ Session restored! Already logged in.")
+                return True
+            except:
+                log("ℹ️  No active session found, proceeding to login...")
+        except Exception as e:
+            log(f"⚠️  Session check failed: {e}")
+
+        log("🔐 Attempting fresh email/password authentication...")
         
         try:
             # Navigate to signin page
             log("📍 Navigating to sign-in page...")
             self.driver.get(self.signin_url)
-            time.sleep(0.6)
+            time.sleep(3)
             
             # Check for cookie warning
             try:
-                warning = self.driver.find_element(By.ID, 'auth-cookie-warning-message')
+                warning = self.driver.find_element(By.ID, 'sp-cc-accept')
                 if warning.is_displayed():
                     log("⚠️  Amazon cookie warning detected - this shouldn't happen with undetected-chromedriver!")
             except:
@@ -159,13 +264,23 @@ class AmazonShoppingListScraper:
                 
                 # Click continue
                 continue_btn = self.driver.find_element(By.ID, 'continue')
-                continue_btn.click()
-                time.sleep(0.6)
+                
+                # If password field is already visible, we don't need to click continue
+                # (This happens on combined login pages)
+                try:
+                    pw_visible = self.driver.find_element(By.ID, 'ap_password').is_displayed()
+                except:
+                    pw_visible = False
+                
+                if not pw_visible:
+                    continue_btn.click()
+                    time.sleep(0.8)
+                else:
+                    log("ℹ️ Combined login page detected, skipping 'Continue' click.")
             except Exception as e:
                 import traceback
                 log(f"❌ Failed to enter email: {e}")
-                log(f"   Current URL: {self.driver.current_url}")
-                log(f"   Page title: {self.driver.title}")
+                self.log_page_diagnostics()
                 if self.debug:
                     log(f"   Full traceback:\n{traceback.format_exc()}")
                 return False
@@ -173,38 +288,189 @@ class AmazonShoppingListScraper:
             # Enter password
             log("🔑 Entering password...")
             try:
+                # IMPORTANT: In some regions/challenges, Email and Password are on the same page.
+                # If we're already on a combined page, we don't need to wait for redirect.
                 password_field = WebDriverWait(self.driver, 10).until(
                     EC.presence_of_element_located((By.ID, 'ap_password'))
                 )
                 password_field.clear()
                 password_field.send_keys(self.password)
-                time.sleep(0.2)
+                time.sleep(0.5)
                 
-                # Click sign in
-                signin_btn = self.driver.find_element(By.ID, 'signInSubmit')
-                signin_btn.click()
-                time.sleep(1)
+                # Check for "Keep me signed in" checkbox
+                try:
+                    remember_me = self.driver.find_element(By.NAME, 'rememberMe')
+                    if not remember_me.is_selected():
+                        remember_me.click()
+                except:
+                    pass
+
+                # Click sign in - Use JS to be sure it triggers
+                log("🖱️ Clicking Sign-In...")
+                self.driver.execute_script("document.getElementById('signInSubmit').click();")
             except Exception as e:
-                log(f"❌ Failed to enter password: {e}")
+                log(f"❌ Failed to submit password: {e}")
+                
+                # Check for explicit error message on page
+                try:
+                    error_box = self.driver.find_element(By.ID, 'auth-error-message-box')
+                    if error_box.is_displayed():
+                        log(f"⚠️  Amazon error detected: {error_box.text.strip()}")
+                except:
+                    pass
+
+                self.log_page_diagnostics()
                 return False
+
+            # Wait for redirect or challenge
+            time.sleep(3.5)
             
-            # Check for OTP
-            if self.otp_secret and ('cvf' in self.driver.current_url or 'ap/mfa' in self.driver.current_url):
-                log("🔐 OTP required...")
+            # Diagnostic log
+            current_url = self.driver.current_url.lower()
+            log(f"📍 Transitioned to: {current_url}")
+
+            # Comprehensive check for OTP / MFA
+            # We look for the OTP field specifically, but can also trigger based on URL
+            otp_present = False
+            try:
+                # Be more patient for OTP to appear
+                otp_field = WebDriverWait(self.driver, 5).until(
+                    EC.presence_of_element_located((By.ID, 'auth-mfa-otpcode'))
+                )
+                otp_present = True
+                log("🔢 OTP field detected")
+            except:
+                pass
+
+            if self.otp_secret and (otp_present or '/mfa' in current_url or '/cvf' in current_url):
+                log("🔐 OTP Required - Challenge detected")
                 if not self.handle_otp():
+                    log(f"❌ OTP failed. Current URL: {self.driver.current_url}")
                     return False
-                # After OTP, Amazon redirects - no need for additional sleep
+                # After OTP, Amazon redirects - wait a bit for landing page
+                time.sleep(5)
             else:
-                # No OTP, wait a bit for redirect after password
-                time.sleep(0.8)
+                log("ℹ️  No OTP challenge detected (already logged in or list redirecting)...")
+                time.sleep(2)
             
             # Verify login success
-            if '/ap/signin' in self.driver.current_url or '/ap/cvf' in self.driver.current_url:
-                log("❌ Still on login page - authentication failed")
-                return False
+            # If we are STILL on a page containing signin, cvf, mfa, or claim, we failed.
+            # But we must be patient as redirects can take several steps.
+            # Define success: Must NOT be an auth page AND must have the list element
+            def is_actually_logged_in():
+                url = self.driver.current_url.lower()
+                auth_identifiers = ['/ap/signin', '/ap/cvf', '/ap/mfa', '/ax/claim']
+                is_stuck_on_auth = any(auth_id in url for auth_id in auth_identifiers)
+                if is_stuck_on_auth:
+                    return False
+                
+                # Check for actual shopping list elements
+                try:
+                    # Look for the virtual list or any list item
+                    self.driver.find_element(By.CLASS_NAME, 'virtual-list')
+                    return True
+                except:
+                    # Also consider a success if we are on the right URL and NOT on an auth page,
+                    # but give it a moment to render.
+                    return 'alexashoppinglist' in url and not is_stuck_on_auth
+
+            log("⏳ Waiting for final redirect to shopping list...")
+            max_check_retries = 5
+            auth_identifiers = ['/ap/signin', '/ap/cvf', '/ap/mfa', '/ax/claim']
+            for i in range(max_check_retries):
+                current_url = self.driver.current_url.lower()
+                
+                # 1. Check for MFA/OTP explicitly first
+                if 'auth-mfa-otpcode' in self.driver.page_source or '/ap/mfa' in current_url or '/ap/cvf' in current_url:
+                    log("🔢 OTP/2FA challenge detected!")
+                    if self.handle_otp():
+                        time.sleep(3) # Wait for MFA redirect
+                        continue
+                    else:
+                        return False
+                
+                # 2. Dismiss Passkey/Phone prompts if they appear
+                try:
+                    # Generic Amazon "Skip for now" links
+                    skip_selectors = [
+                        (By.ID, 'ap-account-fixup-phone-skip-link'),
+                        (By.ID, 'passkey-cancel-button'),
+                        (By.ID, 'auth-skip-link'),
+                        (By.XPATH, "//a[contains(text(), 'Not now')]"),
+                        (By.XPATH, "//a[contains(text(), 'Skip')]"),
+                        (By.XPATH, "//button[contains(text(), 'Not now')]")
+                    ]
+                    for by_type, slctr in skip_selectors:
+                        try:
+                            el = self.driver.find_element(by_type, slctr)
+                            if el and el.is_displayed():
+                                log(f"🚫 Dismissing prompt: {slctr}")
+                                self.driver.execute_script("arguments[0].click();", el)
+                                time.sleep(2)
+                        except:
+                            pass
+                except:
+                    pass
+                
+                # 3. Check for actual success (Element based)
+                if is_actually_logged_in():
+                    log("✅ Successfully reached the Shopping List page!")
+                    break
+                
+                # 3. Handle being stuck on an auth page
+                is_on_auth = any(auth_id in current_url for auth_id in auth_identifiers)
+                if is_on_auth:
+                    if i < max_check_retries - 1:
+                        # ACTIVE STATE MAINTENANCE: Re-fill if Amazon cleared the fields
+                        try:
+                            # Check email field
+                            try:
+                                email_f = self.driver.find_element(By.ID, 'ap_email')
+                                if email_f.is_displayed() and not email_f.get_attribute('value'):
+                                    log("📧 Email field cleared by Amazon, re-filling...")
+                                    email_f.send_keys(self.email)
+                            except: pass
+
+                            # Check password field
+                            pass_f = self.driver.find_element(By.ID, 'ap_password')
+                            if pass_f.is_displayed():
+                                if not pass_f.get_attribute('value'):
+                                    log("🔑 Password field cleared by Amazon, re-filling...")
+                                    pass_f.send_keys(self.password)
+                                
+                                log("⚠️  Login form still visible, re-submitting...")
+                                # Try both possible submit buttons in one JS call
+                                self.driver.execute_script("""
+                                    let btn = document.getElementById('signInSubmit') || document.getElementById('continue');
+                                    if (btn) btn.click();
+                                """)
+                        except:
+                            pass
+                            
+                        log(f"⏳ Still on auth page ({current_url}). Waiting... ({i+1}/{max_check_retries})")
+                        time.sleep(5) # Increased wait time for backend processing
+                        continue
+                    else:
+                        log(f"❌ Stuck on authentication page: {current_url}")
+                        self.log_page_diagnostics()
+                        return False
+                else:
+                    # Not an auth page, not the list page yet. Let's force it.
+                    if i > 1: # After a couple of tries, just force navigate
+                        log(f"🔄 Forcing navigation to list URL... ({current_url})")
+                        self.driver.get(self.shopping_list_url)
+                        time.sleep(3)
+                    else:
+                        # We are on a new page that isn't an auth page and isn't the list page yet
+                        # Could be a redirector or a different Amazon page.
+                        if i < max_check_retries - 1:
+                            time.sleep(2)
+                            continue
+                        else:
+                            log(f"✅ Escaped auth pages. Final URL: {current_url}")
+                            break
             
-            log("✅ Login successful!")
-            # No need to manually save cookies - undetected-chromedriver handles session persistence
+            log("✅ Login flow complete!")
             return True
             
         except Exception as e:
@@ -212,28 +478,36 @@ class AmazonShoppingListScraper:
             return False
     
     def handle_otp(self):
-        """Handle OTP/2FA"""
+        """Handle OTP input and submission"""
         try:
             totp = pyotp.TOTP(self.otp_secret)
             otp_code = totp.now()
             log(f"🔢 Submitting OTP...")
             
-            # Find OTP input field
             otp_field = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.ID, 'auth-mfa-otpcode'))
             )
             otp_field.clear()
             otp_field.send_keys(otp_code)
+            
+            # Click "Don't require code on this browser" if present
+            try:
+                remember_btn = self.driver.find_element(By.NAME, 'rememberDevice')
+                if not remember_btn.is_selected():
+                    log("💾 Selecting 'Don't require code on this browser'...")
+                    remember_btn.click()
+            except:
+                pass # Checkbox might not be present on all layouts
+                
             time.sleep(0.1)
             
             # Submit OTP
             submit_btn = self.driver.find_element(By.ID, 'auth-signin-button')
             submit_btn.click()
             
-            # Wait for redirect (Amazon will redirect to return URL)
-            time.sleep(1.5)
-            
-            log("✅ OTP submitted, waiting for redirect...")
+            # Wait for redirect
+            time.sleep(5.5)
+            log("✅ OTP submitted, awaiting completion...")
             return True
         except Exception as e:
             log(f"❌ OTP handling failed: {e}")
@@ -244,13 +518,17 @@ class AmazonShoppingListScraper:
         log("📋 Scraping shopping list...")
         
         try:
-            # Check if we're already on the shopping list page (after OTP redirect)
-            if 'alexaShoppingList' not in self.driver.current_url:
-                log("🔄 Navigating to shopping list...")
+            # Re-verify we are on the correct page (not an auth challenge)
+            url = self.driver.current_url.lower()
+            auth_identifiers = ['/ap/signin', '/ap/cvf', '/ap/mfa', '/ax/claim']
+            is_on_auth = any(auth_id in url for auth_id in auth_identifiers)
+            
+            if is_on_auth or 'alexashoppinglist' not in url:
+                log(f"🔄 Not on list page ({url}), forcing navigation...")
                 self.driver.get(self.shopping_list_url)
-                time.sleep(1.5)  # Increased wait time for page load
+                time.sleep(4) # Give it plenty of time to load
             else:
-                log("✅ Already on shopping list page")
+                log("✅ Confirmed: Browser is on list page")
             
             if self.debug:
                 log(f"   Current URL: {self.driver.current_url}")

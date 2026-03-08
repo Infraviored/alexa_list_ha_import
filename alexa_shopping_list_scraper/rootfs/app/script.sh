@@ -35,8 +35,14 @@ while true; do
   set +e
   /usr/bin/python3 /app/scrapeAmazon.py 2>&1 | while IFS= read -r line; do printf '[scrape] %s\n' "$line"; done
   scrape_ec=${PIPESTATUS[0]:-0}
-  /usr/bin/node /app/updateHA.js 2>&1 | while IFS= read -r line; do printf '[update] %s\n' "$line"; done
-  update_ec=${PIPESTATUS[0]:-0}
+
+  if [ "$scrape_ec" -eq 0 ]; then
+    /usr/bin/node /app/updateHA.js 2>&1 | while IFS= read -r line; do printf '[update] %s\n' "$line"; done
+    update_ec=${PIPESTATUS[0]:-0}
+  else
+    bashio::log.warning "Scrape failed (exit code $scrape_ec). Skipping update cycle."
+    update_ec=0 # Reset for loop logic
+  fi
   set -e
 
   # Check if Polling_Interval is zero and exit the loop if so
