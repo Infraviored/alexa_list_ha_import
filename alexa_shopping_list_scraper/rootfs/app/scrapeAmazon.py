@@ -8,6 +8,10 @@ import os
 import sys
 import json
 import time
+import re
+import shutil
+import subprocess
+import tempfile
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -18,6 +22,10 @@ from dotenv import load_dotenv
 
 # Load .env file
 load_dotenv()
+
+def log(message):
+    """Simple logging helper"""
+    print(f"[scrape] {message}", flush=True)
 
 def get_config():
     """Load configuration from /data/options.json (HA) or environment variables (Dev)"""
@@ -57,14 +65,6 @@ def get_config():
 
 from marketplace_auth import get_marketplace_auth
 
-def log(message, prefix=""):
-    """Print with timestamp"""
-    print(f"{message}", flush=True)
-
-def get_env(key, default=None):
-    """Get environment variable"""
-    return os.environ.get(key, default)
-
 class AmazonShoppingListScraper:
     def __init__(self):
         config = get_config()
@@ -95,6 +95,107 @@ class AmazonShoppingListScraper:
         
         self.driver = None
         self.temp_profile_dir = None
+        self.browser_binary = None
+        self.chrome_major = None
+
+    def _detect_browser_binary(self):
+        if self.browser_binary and os.path.exists(self.browser_binary):
+            return self.browser_binary
+
+        candidates = [
+            "/usr/bin/chromium-browser",
+            "/usr/bin/chromium",
+            "/usr/bin/google-chrome",
+            "/usr/bin/google-chrome-stable",
+            "/usr/bin/google-chrome-beta",
+        ]
+        for path in candidates:
+            if os.path.exists(path):
+                self.browser_binary = path
+                return path
+        return None
+
+    def _detect_chrome_major(self):
+        browser = self._detect_browser_binary()
+        if not browser:
+            return None
+        try:
+            out = subprocess.check_output(
+                [browser, "--version"],
+                stderr=subprocess.STDOUT,
+                text=True
+            ).strip()
+            match = re.search(r"(\d+)\.", out)
+            if match:
+                self.chrome_major = int(match.group(1))
+                return self.chrome_major
+        except Exception as e:
+            log(f"⚠️ Failed to detect browser version from {browser}: {e}")
+        return None
+
+    def _log_runtime_versions(self):
+        commands = [
+            ["/usr/bin/chromedriver", "--version"],
+            ["/usr/bin/chromium-browser", "--version"],
+            ["/usr/bin/chromium", "--version"],
+        ]
+        for cmd in commands:
+            try:
+                out = subprocess.check_output(
+                    cmd,
+                    stderr=subprocess.STDOUT,
+                    text=True
+                ).strip()
+                log(f"ℹ️ {out}")
+            except Exception:
+                pass
+
+    def _kill_stale_processes(self):
+        for binary in ("/usr/bin/pkill", "/bin/pkill"):
+            if not os.path.exists(binary):
+                continue
+            for pattern in ("chromedriver", "chromium", "chrome"):
+                try:
+                    subprocess.run(
+                        [binary, "-f", pattern],
+                        check=False,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL
+                    )
+                except Exception:
+                    pass
+            time.sleep(1)
+            return
+
+    def _create_fresh_profile_dir(self):
+        self.temp_profile_dir = tempfile.mkdtemp(prefix="amazon_chrome_")
+        return self.temp_profile_dir
+
+    def _cleanup_profile_runtime_artifacts(self, profile_dir):
+        if not profile_dir or not os.path.isdir(profile_dir):
+            return
+        for name in (
+            "SingletonLock",
+            "SingletonCookie",
+            "SingletonSocket",
+            "DevToolsActivePort",
+            "chrome_debug.log",
+        ):
+            path = os.path.join(profile_dir, name)
+            try:
+                if os.path.exists(path):
+                    os.remove(path)
+            except Exception as e:
+                log(f"⚠️ Could not remove runtime artifact {path}: {e}")
+
+    def _cleanup_profile_dir(self):
+        if self.temp_profile_dir and os.path.isdir(self.temp_profile_dir):
+            try:
+                shutil.rmtree(self.temp_profile_dir, ignore_errors=True)
+            except Exception as e:
+                log(f"⚠️ Could not remove temp profile dir {self.temp_profile_dir}: {e}")
+            finally:
+                self.temp_profile_dir = None
         
     
     def _install_webauthn_killer(self):
@@ -150,79 +251,119 @@ class AmazonShoppingListScraper:
         except:
             pass
 
-    def init_driver(self):
-        """Initialize undetected Chrome driver"""
-        try:
-            if self.debug:
-                log("Initializing undetected Chrome driver...")
-            
-            options = uc.ChromeOptions()
-            options.add_argument('--no-sandbox')
-            options.add_argument('--disable-dev-shm-usage')
-            
-            # Disable native credential prompts via flags (though CDP script is more reliable)
-            options.add_argument('--disable-features=WebAuthentication,WebAuthenticationCustomUI,Bluetooth,FileSelectionDialogs')
-            options.add_argument('--disable-blink-features=WebAuthentication')
-            
-            # Additional preferences to keep the browser quiet
-            options.add_experimental_option("prefs", {
-                "credentials_enable_service": False,
-                "profile.password_manager_enabled": False,
-                "profile.default_content_setting_values.notifications": 2,
-                "autofill.profile_enabled": False,
-                "autofill.credit_card_enabled": False
-            })
-            options.add_argument('--window-size=1920,1080')
-            
-            # Use detected language or fallback to region-based
-            browser_lang = self.language or ("de-DE" if self.region == "de" else "en-US")
-            options.add_argument(f'--lang={browser_lang}')
-            
-            # Determine if running in Docker or local dev environment
-            is_docker = os.path.exists('/.dockerenv') or os.path.exists('/data')
-            
-            # PERSISTENCE: Use a local directory to save cookies and session state
-            self.temp_profile_dir = os.path.join(os.getcwd(), 'amazon_session')
-            if not os.path.exists(self.temp_profile_dir):
-                os.makedirs(self.temp_profile_dir)
-                
-            options.add_argument(f'--user-data-dir={self.temp_profile_dir}')
-            log(f"Using persistent profile: {self.temp_profile_dir}")
-            
-            if is_docker:
-                # Docker/Home Assistant environment - always headless
-                options.add_argument('--headless')
-                driver_path = '/usr/bin/chromedriver'
-                self.driver = uc.Chrome(options=options, driver_executable_path=driver_path)
-            else:
-                # Local development environment
-                options.binary_location = '/usr/bin/google-chrome-beta'
-                
-                # HEAD=True enables visible browser (headful)
-                # Headless is the default for production/normal usage
-                if self.headful and not self.force_headless:
-                    log("🗣️ Running in HEADFUL mode (browser window visible)")
-                else:
-                    # Silent in headless
-                    options.add_argument('--headless=new')
-                
-                # In local dev, let undetected-chromedriver handle everything
-                self.driver = uc.Chrome(options=options, use_subprocess=False)
-                
-            # Install the WebAuthn killer immediately after driver creation
-            self._install_webauthn_killer()
-            self.driver.set_page_load_timeout(60)
-            
-            log("✅ Driver initialized successfully")
-            if not is_docker and self.debug:
-                log("💡 Browser window is visible - watch the magic happen!")
-            return True
-        except Exception as e:
-            log(f"Failed to initialize driver: {e}")
-            if not is_docker:
-                log("Make sure Chrome/Chromium is installed on your system")
-                log("undetected-chromedriver will auto-download the correct driver version")
+    def init_driver(self, max_retries=3):
+        """Initialize undetected Chrome driver with retry logic"""
+        is_docker = os.path.exists('/.dockerenv') or os.path.exists('/data')
+
+        self.browser_binary = self._detect_browser_binary()
+        if not self.browser_binary:
+            log("❌ Could not find a Chromium/Chrome browser binary")
             return False
+
+        self.chrome_major = self._detect_chrome_major()
+        if not self.chrome_major:
+            log("❌ Could not detect Chromium major version")
+            return False
+
+        if self.debug:
+            self._log_runtime_versions()
+            log(f"ℹ️ Using browser binary: {self.browser_binary}")
+            log(f"ℹ️ Using Chromium major version: {self.chrome_major}")
+
+        for attempt in range(1, max_retries + 1):
+            try:
+                if self.debug:
+                    log(f"Initializing undetected Chrome driver (Attempt {attempt}/{max_retries})...")
+
+                self._kill_stale_processes()
+                self._cleanup_profile_dir()
+
+                options = uc.ChromeOptions()
+                options.add_argument('--no-sandbox')
+                options.add_argument('--disable-dev-shm-usage')
+                options.add_argument('--disable-gpu')
+                options.add_argument('--disable-software-rasterizer')
+                options.add_argument('--disable-extensions')
+                options.add_argument('--disable-background-networking')
+                options.add_argument('--disable-sync')
+                options.add_argument('--metrics-recording-only')
+                options.add_argument('--no-first-run')
+                options.add_argument('--password-store=basic')
+                options.add_argument('--use-mock-keychain')
+
+                # Disable native credential prompts via flags (though CDP script is more reliable)
+                options.add_argument('--disable-features=WebAuthentication,WebAuthenticationCustomUI,Bluetooth,FileSelectionDialogs')
+                options.add_argument('--disable-blink-features=WebAuthentication')
+
+                # Additional preferences to keep the browser quiet
+                options.add_experimental_option("prefs", {
+                    "credentials_enable_service": False,
+                    "profile.password_manager_enabled": False,
+                    "profile.default_content_setting_values.notifications": 2,
+                    "autofill.profile_enabled": False,
+                    "autofill.credit_card_enabled": False
+                })
+                options.add_argument('--window-size=1920,1080')
+
+                # Use detected language or fallback to region-based
+                browser_lang = self.language or ("de-DE" if self.region == "de" else "en-US")
+                options.add_argument(f'--lang={browser_lang}')
+
+                # Use a fresh profile each run to avoid stale Chromium lock state
+                self.temp_profile_dir = self._create_fresh_profile_dir()
+                self._cleanup_profile_runtime_artifacts(self.temp_profile_dir)
+                options.add_argument(f'--user-data-dir={self.temp_profile_dir}')
+                options.binary_location = self.browser_binary
+
+                if is_docker:
+                    # Docker/Home Assistant environment - always headless
+                    options.add_argument('--headless=new')
+                    driver_path = '/usr/bin/chromedriver'
+                    if not os.path.exists(driver_path):
+                        log(f"❌ Chromedriver not found at {driver_path}")
+                        return False
+                    self.driver = uc.Chrome(
+                        options=options,
+                        driver_executable_path=driver_path,
+                        browser_executable_path=self.browser_binary,
+                        version_main=self.chrome_major
+                    )
+                else:
+                    if self.headful and not self.force_headless:
+                        log("🗣️ Running in HEADFUL mode (browser window visible)")
+                    else:
+                        options.add_argument('--headless=new')
+
+                    self.driver = uc.Chrome(
+                        options=options,
+                        browser_executable_path=self.browser_binary,
+                        version_main=self.chrome_major,
+                        use_subprocess=False
+                    )
+
+                # Install the WebAuthn killer immediately after driver creation
+                self._install_webauthn_killer()
+                self.driver.set_page_load_timeout(60)
+
+                log("✅ Driver initialized successfully")
+                return True
+
+            except Exception as e:
+                log(f"⚠️ Driver initialization attempt {attempt} failed: {e}")
+                try:
+                    if self.driver:
+                        self.driver.quit()
+                except Exception:
+                    pass
+                self.driver = None
+                self._cleanup_profile_dir()
+                if attempt < max_retries:
+                    time.sleep(5) # Wait before retrying
+                else:
+                    log("❌ All driver initialization attempts failed.")
+                    if not is_docker:
+                        log("Make sure Chrome/Chromium is installed on your system")
+                    return False
     
     def log_page_diagnostics(self):
         """Log detailed page diagnostics on failure"""
@@ -741,34 +882,45 @@ class AmazonShoppingListScraper:
         log(f"Authentication: Email/Password + OTP")
         log(f"Shopping List URL: {self.shopping_list_url}")
         log("═══════════════════════════════════════════════════════════")
-        log("")
         
-        try:
-            # Initialize driver
-            if not self.init_driver():
-                return False
-            
-            # STATELESS: Always authenticate fresh (no cookies)
-            # Email/password authentication with OTP
-            if not self.login_with_email_password():
-                log("❌ Authentication failed!")
-                return False
-            
-            # Scrape the list
-            return self.scrape_shopping_list()
-            
-        except Exception as e:
-            log(f"❌ Unexpected error: {e}")
+        # Initialize driver
+        if not self.init_driver():
             return False
-        finally:
-            if self.driver:
-                self.driver.quit()
+
+        # Fresh authentication each run
+        if not self.login_with_email_password():
+            log("❌ Authentication failed!")
+            return False
             
-            # STATELESS is gone: We now maintain session persistence.
-            # No automatic cleanup of temp_profile_dir to keep cookies alive.
+        # Scrape the list
+        return self.scrape_shopping_list()
+
+    def __del__(self):
+        """Cleanup on object destruction"""
+        self._cleanup_profile_dir()
 
 if __name__ == '__main__':
-    scraper = AmazonShoppingListScraper()
-    success = scraper.run()
-    sys.exit(0 if success else 12)
+    try:
+        scraper = AmazonShoppingListScraper()
+        success = scraper.run()
+        
+        if success:
+            log("Cycle finished successfully.")
+            sys.exit(0)
+        else:
+            log("Cycle failed.")
+            sys.exit(1)
+            
+    except Exception as e:
+        log(f"Unhandled exception: {e}")
+        sys.exit(1)
+    finally:
+        # Final cleanup attempt
+        if 'scraper' in locals():
+            if scraper.driver:
+                try:
+                    scraper.driver.quit()
+                except:
+                    pass
+            scraper._cleanup_profile_dir()
 

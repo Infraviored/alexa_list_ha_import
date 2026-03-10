@@ -23,20 +23,32 @@ while true; do
   
   bashio::log.info "Starting scrape and update cycle..."
   echo "Debug_Log=$(bashio::config 'Debug_Log'); Pooling_Interval=${Pooling_Interval}"
+  
+  # Fail hard on invalid or missing webhook
   WEBHOOK=$(bashio::config 'HA_Webhook_URL')
   if [ -z "$WEBHOOK" ] || ! echo "$WEBHOOK" | grep -qE '^https?://'; then
-    echo "ERROR: HA_Webhook_URL is missing or invalid. Set it in the add-on configuration."
+    bashio::log.error "HA_Webhook_URL is missing or invalid. Set it in the add-on configuration."
+    exit 1
   fi
 
-  # Run commands sequentially and log exit codes (avoid silent exits)
-  cd /app/ || { echo "ERROR: /app not available; retrying after sleep"; sleep "$Pooling_Interval"; continue; }
-  
-  # Authentication via email/password with OTP (stateless, no cookies)
-  set +e
-  /usr/bin/python3 /app/scrapeAmazon.py 2>&1 | while IFS= read -r line; do printf '[scrape] %s\n' "$line"; done
-  scrape_ec=${PIPESTATUS[0]:-0}
+# Run commands sequentially and log exit codes (avoid silent exits)
+cd /app/ || { echo "ERROR: /app not available; retrying after sleep"; sleep "$Pooling_Interval"; continue; }
 
-  if [ "$scrape_ec" -eq 0 ]; then
+# Cleanup stale browser processes and old runtime lock files
+pkill -f chromium 2>/dev/null || true
+pkill -f chrome 2>/dev/null || true
+pkill -f chromedriver 2>/dev/null || true
+rm -f /app/amazon_session/SingletonLock \
+      /app/amazon_session/SingletonCookie \
+      /app/amazon_session/SingletonSocket \
+      /app/amazon_session/DevToolsActivePort 2>/dev/null || true
+
+# Authentication via email/password with OTP
+set +e
+/usr/bin/python3 /app/scrapeAmazon.py 2>&1 | while IFS= read -r line; do printf '[scrape] %s\n' "$line"; done
+scrape_ec=${PIPESTATUS[0]:-0}
+
+if [ "$scrape_ec" -eq 0 ]; then
     /usr/bin/node /app/updateHA.js 2>&1 | while IFS= read -r line; do printf '[update] %s\n' "$line"; done
     update_ec=${PIPESTATUS[0]:-0}
   else
