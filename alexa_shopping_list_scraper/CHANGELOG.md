@@ -1,3 +1,10 @@
+## 2.2.1 - RELIABILITY & STARTUP FIX
+- **Stateless Operation Mode** - Switched to fresh temporary browser profiles for every run to eliminate issues with stale lock files and sessions.
+- **Robust Driver Initialization** - Added a multi-retry mechanism and explicit Chromium version detection to resolve startup hangs and timeouts.
+- **Aggressive Process Management** - Implemented automatic termination of orphan browser processes and cleanup of runtime artifacts before each cycle.
+- **Modern Headless Experience** - Standardized on the latest `--headless=new` flag for improved reliability in Docker environments.
+- **Build Reproducibility** - Pinned all core Python dependencies to exact versions to prevent silent version drift and unexpected bugs.
+
 ## 2.2.0 - DYNAMIC MARKETPLACE AUTH & RELIABILITY
 - **Dynamic Marketplace Discovery** - Implemented a redirection-based discovery system that automatically finds the correct `assoc_handle` and `language` for any Amazon marketplace.
 - **Native Home Assistant Integration** - Added direct support for `/data/options.json`, ensuring settings from the Home Assistant UI are processed correctly.
