@@ -14,6 +14,7 @@ import subprocess
 import tempfile
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
@@ -509,7 +510,7 @@ class AmazonShoppingListScraper:
             log(f"📍 Transitioned to: {current_url}")
 
             # Comprehensive check for OTP / MFA
-            # We look for the OTP field specifically, but can also trigger based on URL
+            # We look for the OTP field specifically, but can also trigger based on URL or choice pages
             otp_present = False
             try:
                 # Be more patient for OTP to appear
@@ -521,7 +522,7 @@ class AmazonShoppingListScraper:
             except:
                 pass
 
-            if self.otp_secret and (otp_present or '/mfa' in current_url or '/cvf' in current_url):
+            if self.otp_secret and (otp_present or '/mfa' in current_url or '/cvf' in current_url or 'auth-mfa-mfaChoice' in self.driver.page_source):
                 log("🔐 OTP Required - Challenge detected")
                 if not self.handle_otp():
                     log(f"❌ OTP failed. Current URL: {self.driver.current_url}")
@@ -660,38 +661,151 @@ class AmazonShoppingListScraper:
         """Handle OTP input and submission"""
         try:
             # Clean spaces from OTP secret as suggested by community feedback
+            if not self.otp_secret or not isinstance(self.otp_secret, str):
+                log("❌ OTP secret is missing or not a string. Cannot handle OTP.")
+                return False
+                
             clean_secret = self.otp_secret.replace(" ", "")
             totp = pyotp.TOTP(clean_secret)
             otp_code = totp.now()
-            log(f"🔢 Submitting OTP...")
-            
-            otp_field = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.ID, 'auth-mfa-otpcode'))
-            )
+            log(f"🔢 Submitting OTP... (Code generated)")
+            initial_url = self.driver.current_url
+
+            def find_clickable(selectors, timeout=4):
+                for by_type, slctr in selectors:
+                    try:
+                        el = WebDriverWait(self.driver, timeout).until(
+                            EC.element_to_be_clickable((by_type, slctr))
+                        )
+                        if el and el.is_displayed():
+                            return el, slctr
+                    except:
+                        pass
+                return None, None
+
+            def find_visible(selectors, timeout=4):
+                for by_type, slctr in selectors:
+                    try:
+                        el = WebDriverWait(self.driver, timeout).until(
+                            EC.visibility_of_element_located((by_type, slctr))
+                        )
+                        if el and el.is_displayed():
+                            return el, slctr
+                    except:
+                        pass
+                return None, None
+
+            # 1) Handle MFA choice screens first
+            switch_selectors = [
+                (By.ID, 'auth-mfa-mfaChoice-enter-totp'),
+                (By.CSS_SELECTOR, 'input[value="totp"]'),
+                (By.CSS_SELECTOR, 'input[value="authenticatorApp"]'),
+                (By.XPATH, "//a[contains(@id,'totp')]"),
+            ]
+            switch_el, switch_sel = find_clickable(switch_selectors, timeout=3)
+            if switch_el:
+                log(f"🔄 Found MFA choice selector: {switch_sel}")
+                self.driver.execute_script("arguments[0].click();", switch_el)
+                time.sleep(2)
+
+                # Some variants need an explicit continue/submit after selecting TOTP
+                continue_el, continue_sel = find_clickable([
+                    (By.ID, 'auth-mfa-submit-button'),
+                    (By.CSS_SELECTOR, 'input[type="submit"]'),
+                    (By.CSS_SELECTOR, 'button[type="submit"]'),
+                ], timeout=2)
+                if continue_el:
+                    log(f"🖱️ Confirming MFA choice using: {continue_sel}")
+                    self.driver.execute_script("arguments[0].click();", continue_el)
+                    time.sleep(2)
+
+            # 2) Find the OTP input field with fallbacks
+            otp_selectors = [
+                (By.ID, 'auth-mfa-otpcode'),
+                (By.ID, 'ap_mfa_code'),
+                (By.NAME, 'otpCode'),
+                (By.CSS_SELECTOR, 'input[autocomplete="one-time-code"]'),
+                (By.XPATH, "//input[contains(@name,'otp') or contains(@id,'otp')]"),
+                (By.CSS_SELECTOR, 'input[type="tel"][maxlength="6"]'),
+            ]
+            otp_field, otp_selector = find_visible(otp_selectors, timeout=5)
+            if not otp_field:
+                self.log_page_diagnostics()
+                raise Exception("Could not find the OTP input field on the page")
+
+            log(f"✅ Found OTP field using: {otp_selector}")
             otp_field.clear()
             otp_field.send_keys(otp_code)
-            
-            # Click "Don't require code on this browser" if present
+
+            # 3) Click "Don't require code on this browser" if present
             try:
-                remember_btn = self.driver.find_element(By.NAME, 'rememberDevice')
-                if not remember_btn.is_selected():
+                remember_btn, remember_sel = find_clickable([
+                    (By.NAME, 'rememberDevice'),
+                    (By.ID, 'rememberDevice'),
+                    (By.CSS_SELECTOR, 'input[name="rememberDevice"]'),
+                ], timeout=2)
+                if remember_btn and not remember_btn.is_selected():
                     log("💾 Selecting 'Don't require code on this browser'...")
-                    remember_btn.click()
+                    self.driver.execute_script("arguments[0].click();", remember_btn)
             except:
-                pass # Checkbox might not be present on all layouts
-                
-            time.sleep(0.1)
-            
-            # Submit OTP
-            submit_btn = self.driver.find_element(By.ID, 'auth-signin-button')
-            submit_btn.click()
-            
-            # Wait for redirect
-            time.sleep(5.5)
+                pass
+
+            time.sleep(0.5)
+
+            # 4) Submit OTP using several known button types
+            submitted = False
+            submit_btn, submit_sel = find_clickable([
+                (By.ID, 'auth-signin-button'),
+                (By.ID, 'auth-mfa-submit-button'),
+                (By.CSS_SELECTOR, 'input[type="submit"]'),
+                (By.CSS_SELECTOR, 'button[type="submit"]'),
+            ], timeout=3)
+
+            if submit_btn:
+                log(f"🖱️ Clicking Submit using: {submit_sel}")
+                self.driver.execute_script("arguments[0].click();", submit_btn)
+                submitted = True
+            else:
+                log("🖱️ No submit button found, submitting via RETURN key...")
+                otp_field.send_keys(Keys.RETURN)
+                submitted = True
+
+            if not submitted:
+                raise Exception("Failed to submit OTP")
+
+            # 5) Wait for either URL movement, page change, or explicit error
+            try:
+                WebDriverWait(self.driver, 12).until(
+                    lambda d: (
+                        d.current_url != initial_url or
+                        ('/ap/mfa' not in d.current_url.lower() and '/ap/cvf' not in d.current_url.lower()) or
+                        len(d.find_elements(By.ID, 'auth-error-message-box')) > 0
+                    )
+                )
+            except TimeoutException:
+                pass
+
+            time.sleep(2)
+            current_url = self.driver.current_url.lower()
+
+            # 6) Surface explicit Amazon-side auth errors if they exist
+            try:
+                error_box = self.driver.find_element(By.ID, 'auth-error-message-box')
+                if error_box.is_displayed() and error_box.text.strip():
+                    raise Exception(f"Amazon OTP error: {error_box.text.strip()}")
+            except NoSuchElementException:
+                pass
+
+            # 7) Still stuck on MFA means the submit did not actually complete
+            if '/ap/mfa' in current_url or '/ap/cvf' in current_url:
+                self.log_page_diagnostics()
+                raise Exception(f"Still on MFA page after OTP submit: {self.driver.current_url}")
+
             log("✅ OTP submitted, awaiting completion...")
             return True
         except Exception as e:
             log(f"❌ OTP handling failed: {e}")
+            self.log_page_diagnostics()
             return False
     
     def scrape_shopping_list(self):

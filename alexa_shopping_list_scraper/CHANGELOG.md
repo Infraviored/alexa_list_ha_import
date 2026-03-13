@@ -1,3 +1,9 @@
+## 2.2.2 - ADVANCED OTP CHALLENGE HANDLING
+- **MFA Flow Resilience** - Improved support for Amazon's multi-step MFA screens, including automatic switching from "Push Notification" to "Authenticator App" (TOTP) codes.
+- **Robust Element Discovery** - Implemented dynamic search for OTP inputs and submit buttons with multiple fallbacks (`auth-mfa-otpcode`, `ap_mfa_code`, `otpCode`, etc.).
+- **Post-Submit Verification** - Added explicit checks for URL changes and Amazon-side error messages after OTP submission to ensure the flow actually escapes the MFA challenge.
+- **Enhanced Diagnostics** - Automatically dumps visible page elements and IDs if the scraper gets stuck on a challenge page, enabling faster community reporting and fixes.
+
 ## 2.2.1 - RELIABILITY & STARTUP FIX
 - **Stateless Operation Mode** - Switched to fresh temporary browser profiles for every run to eliminate issues with stale lock files and sessions.
 - **Robust Driver Initialization** - Added a multi-retry mechanism and explicit Chromium version detection to resolve startup hangs and timeouts.
