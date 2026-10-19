@@ -395,6 +395,26 @@ class AmazonShoppingListScraper:
         except Exception as e:
             log(f"   (Could not retrieve diagnostics: {e})")
 
+    def switch_passkey_to_password(self):
+        """If Amazon offers a passkey challenge, switch to the password challenge."""
+        try:
+            link_css = 'a[href*="selectedChallengeType=password"]'
+            # The page after the email step loads asynchronously: wait for either target
+            end = time.time() + 8
+            while time.time() < end:
+                if self.driver.find_elements(By.ID, 'ap_password'):
+                    return
+                for link in self.driver.find_elements(By.CSS_SELECTOR, link_css):
+                    if link.is_displayed():
+                        log("🔑 Passkey page detected, switching to password challenge...")
+                        self.driver.execute_script("arguments[0].click();", link)
+                        time.sleep(2)
+                        return
+                time.sleep(0.5)
+            log("ℹ️  No passkey page detected, continuing with password step")
+        except Exception as e:
+            log(f"⚠️  Passkey bypass failed: {e}")
+
     def login_with_email_password(self):
         """Login using email and password"""
         log("🔐 Checking authentication state...")
@@ -465,6 +485,10 @@ class AmazonShoppingListScraper:
                     log(f"   Full traceback:\n{traceback.format_exc()}")
                 return False
             
+            # Amazon may show a passkey page (/ax/claim/auth) instead of the password field.
+            # Follow its "Enter your password" link (selectedChallengeType=password).
+            self.switch_passkey_to_password()
+
             # Enter password
             log("🔑 Entering password...")
             try:
