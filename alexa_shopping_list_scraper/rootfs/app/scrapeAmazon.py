@@ -66,6 +66,15 @@ def get_config():
 
 from marketplace_auth import get_marketplace_auth
 
+
+# Amazon's #signInSubmit is a <span> wrapper on the current login page;
+# only the <input type=submit> inside it triggers the form. Older pages: #signInSubmit is the input itself.
+SUBMIT_JS = """
+    let el = document.getElementById('signInSubmit');
+    let btn = (el && el.querySelector('input[type=submit]')) || el || document.getElementById('continue');
+    if (btn) btn.click();
+"""
+
 class AmazonShoppingListScraper:
     def __init__(self):
         config = get_config()
@@ -511,7 +520,7 @@ class AmazonShoppingListScraper:
 
                 # Click sign in - Use JS to be sure it triggers
                 log("🖱️ Clicking Sign-In...")
-                self.driver.execute_script("document.getElementById('signInSubmit').click();")
+                self.driver.execute_script(SUBMIT_JS)
             except Exception as e:
                 log(f"❌ Failed to submit password: {e}")
                 
@@ -539,7 +548,7 @@ class AmazonShoppingListScraper:
             try:
                 # Be more patient for OTP to appear
                 otp_field = WebDriverWait(self.driver, 5).until(
-                    EC.presence_of_element_located((By.ID, 'auth-mfa-otpcode'))
+                    EC.presence_of_element_located((By.CSS_SELECTOR, '#auth-mfa-otpcode, #ap_otp_code, input[name="otpCode"]'))
                 )
                 otp_present = True
                 log("🔢 OTP field detected")
@@ -644,10 +653,7 @@ class AmazonShoppingListScraper:
                                 
                                 log("⚠️  Login form still visible, re-submitting...")
                                 # Try both possible submit buttons in one JS call
-                                self.driver.execute_script("""
-                                    let btn = document.getElementById('signInSubmit') || document.getElementById('continue');
-                                    if (btn) btn.click();
-                                """)
+                                self.driver.execute_script(SUBMIT_JS)
                         except:
                             pass
                             
@@ -746,6 +752,7 @@ class AmazonShoppingListScraper:
             # 2) Find the OTP input field with fallbacks
             otp_selectors = [
                 (By.ID, 'auth-mfa-otpcode'),
+                (By.ID, 'ap_otp_code'),
                 (By.ID, 'ap_mfa_code'),
                 (By.NAME, 'otpCode'),
                 (By.CSS_SELECTOR, 'input[autocomplete="one-time-code"]'),
@@ -787,7 +794,9 @@ class AmazonShoppingListScraper:
 
             if submit_btn:
                 log(f"🖱️ Clicking Submit using: {submit_sel}")
-                self.driver.execute_script("arguments[0].click();", submit_btn)
+                # On current Amazon pages the matched element is a <span> wrapper; the real submit is the input inside
+                self.driver.execute_script(
+                    "(arguments[0].querySelector('input[type=submit]') || arguments[0]).click();", submit_btn)
                 submitted = True
             else:
                 log("🖱️ No submit button found, submitting via RETURN key...")
