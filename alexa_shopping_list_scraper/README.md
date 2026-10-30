@@ -108,7 +108,7 @@ The add-on automatically builds the correct sign-in URL based on your `Amazon_Re
 - **`Amazon_Region`**: Your Amazon region code (e.g., `com`, `de`, `co.uk`, `it`)
 - **`Amazon_Login`**: Your Amazon email address
 - **`Amazon_Pass`**: Your Amazon password
-- **`Amazon_Secret`**: Your 2FA secret key (spaces are automatically removed)
+- **`Amazon_Secret`**: Your 2FA secret key (spaces are automatically removed). This is the long key (letters A-Z, digits 2-7), not the 6-digit code your app shows
 
 ### Optional Settings
 - **`Pooling_Interval`**: Seconds between checks (default: 180)
@@ -178,6 +178,7 @@ webhook_trigger:
 - Verify your email, password, and 2FA secret are correct
 - Ensure 2FA/2-step verification is enabled on your Amazon account
 - The `Amazon_Secret` can have spaces (they're automatically removed)
+- `Non-base32 digit found` or `looks like a 6-digit one-time code`: you entered a code instead of the secret key. Re-add the authenticator app in Amazon and copy the key shown under "Can't scan the barcode?"
 - Check that `Amazon_Region` matches your Amazon account's region
 
 ### Amazon blocks login / bot detection

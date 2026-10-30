@@ -1,3 +1,7 @@
+## 2.2.4 - 2FA SECRET VALIDATION
+- **Clear 2FA Secret Errors** - `Amazon_Secret` is checked before use. A 6-digit one-time code entered instead of the secret key, or invalid characters (0/1/8/9), are now reported clearly instead of `Non-base32 digit found`.
+- **Lenient Secret Input** - Dashes, line breaks, lowercase letters and a pasted `otpauth://` URI are accepted.
+
 ## 2.2.3 - PASSKEY / OTP FLOW FIX
 - **Amazon Passkey Fix** - Added support for Amazon's newer passkey challenge flow by switching to the password challenge when needed.
 - **New Login Flow Compatibility** - Improved support for the updated `/ax/claim` login screens, including span-based submit buttons and the new OTP field detection.

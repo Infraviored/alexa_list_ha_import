@@ -67,6 +67,31 @@ def get_config():
 from marketplace_auth import get_marketplace_auth
 
 
+def normalize_otp_secret(raw):
+    """Clean up the configured 2FA secret and check it is a usable base32 key.
+
+    Returns (secret, None) on success or (None, reason) when the value cannot be a TOTP secret.
+    """
+    secret = str(raw).strip()
+    # Accept a pasted otpauth:// URI and take its secret= parameter
+    match = re.search(r'[?&]secret=([^&]+)', secret, re.IGNORECASE)
+    if match:
+        secret = match.group(1)
+    secret = re.sub(r'[\s\-]', '', secret).rstrip('=').upper()
+    if not secret:
+        return None, "Amazon_Secret is empty"
+    if secret.isdigit():
+        return None, (
+            f"Amazon_Secret looks like a {len(secret)}-digit one-time code, not the secret key. "
+            "Use the long key shown under \"Can't scan the barcode?\" when adding an authenticator app in Amazon's 2SV settings")
+    invalid = sorted(set(re.sub(r'[A-Z2-7]', '', secret)))
+    if invalid:
+        return None, (
+            f"Amazon_Secret contains characters a 2FA secret key cannot have: {' '.join(invalid)} "
+            "(allowed: letters A-Z and digits 2-7; 0/1/8/9 are usually a misread O/I/B)")
+    return secret, None
+
+
 # Amazon's #signInSubmit is a <span> wrapper on the current login page;
 # only the <input type=submit> inside it triggers the form. Older pages: #signInSubmit is the input itself.
 SUBMIT_JS = """
@@ -690,12 +715,14 @@ class AmazonShoppingListScraper:
     def handle_otp(self):
         """Handle OTP input and submission"""
         try:
-            # Clean spaces from OTP secret as suggested by community feedback
             if not self.otp_secret or not isinstance(self.otp_secret, str):
                 log("❌ OTP secret is missing or not a string. Cannot handle OTP.")
                 return False
                 
-            clean_secret = self.otp_secret.replace(" ", "")
+            clean_secret, problem = normalize_otp_secret(self.otp_secret)
+            if problem:
+                log(f"❌ {problem}")
+                return False
             totp = pyotp.TOTP(clean_secret)
             otp_code = totp.now()
             log(f"🔢 Submitting OTP... (Code generated)")
