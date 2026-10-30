@@ -1,3 +1,8 @@
+## 2.2.3 - PASSKEY / OTP FLOW FIX
+- **Amazon Passkey Fix** - Added support for Amazon's newer passkey challenge flow by switching to the password challenge when needed.
+- **New Login Flow Compatibility** - Improved support for the updated `/ax/claim` login screens, including span-based submit buttons and the new OTP field detection.
+- **MFA Reliability** - Better handling of newer Amazon MFA challenge states to improve login success rate.
+
 ## 2.2.2 - ADVANCED OTP CHALLENGE HANDLING
 - **MFA Flow Resilience** - Improved support for Amazon's multi-step MFA screens, including automatic switching from "Push Notification" to "Authenticator App" (TOTP) codes.
 - **Robust Element Discovery** - Implemented dynamic search for OTP inputs and submit buttons with multiple fallbacks (`auth-mfa-otpcode`, `ap_mfa_code`, `otpCode`, etc.).
